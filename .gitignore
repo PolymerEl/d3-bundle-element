@@ -1,0 +1,8 @@
+.DS_Store
+node_modules
+npm-debug.log
+*.min.js
+d3.js
+d3-multi.js
+d3-shape.js
+d3-small.js
