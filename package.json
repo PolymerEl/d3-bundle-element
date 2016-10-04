@@ -1,6 +1,6 @@
 {
   "name": "d3-bundle-element",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "polymer element for importing d3.js (v4) as optimized bundle",
   "keywords": [
     "web-component",
@@ -12,6 +12,7 @@
     "authors": [
     "christophe-g <christophe.geiser@gmail.com>"
   ],
+   "repository": "https://github.com/polymerEl/d3-bundle-element",
   "homepage": "https://github.com/PolymerEl/d3-bundle-element",
   "main": "d3-bundle-element.html",
   "license": "MIT",
@@ -51,7 +52,7 @@
     "d3-voronoi": "1.0.2",
     "d3-zoom": "1.0.3",
     "d3-selection-multi": "^1.0.0",
-    "d3-svg-legend": "^2.9.0"
+    "d3-svg-legend": "https://github.com/christophe-g/d3-legend#mergeSelection"
   },
   "devDependencies": {
     "json2module": "0.0",
