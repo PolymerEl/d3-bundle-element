@@ -28,3 +28,7 @@ export  {
   legendSize,
   legendSymbol
 };
+
+// export {
+//   default as constant
+// } from 'd3-scale/src/constant.js';
