@@ -19,6 +19,15 @@ export * from "d3-scale"
 export * from "d3-random"
 export * from "d3-svg-legend"
 
+export {
+  entries,
+  keys,
+  values,
+  map,
+  set,
+  nest
+} from "d3-collection";
+
 /* Other Plugins */
 import legendColor from 'd3-svg-legend/src/color.js'
 import legendSize from 'd3-svg-legend/src/size.js'
