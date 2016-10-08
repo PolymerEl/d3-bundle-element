@@ -5,5 +5,5 @@ export default {
   format: "umd",
   moduleName: "d3",
   plugins: [npm({jsnext: true})],
-  dest: "d3-multi.js"
+  dest: "build/d3-multi.js"
 };

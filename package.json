@@ -15,11 +15,11 @@
   ],
    "repository": "https://github.com/polymerEl/d3-bundle-element",
   "homepage": "https://github.com/polymerEl/d3-bundle-element",
-  "main": "d3-bundle-element.html",
+  "main": "build/d3-multi.js",
   "license": "MIT",
   "homepage": "https://github.com/polymerEl/d3-bundle-element",
   "scripts": {
-    "prepublish": "rollup -c && rollup -c rollup.shape.config.js && rollup -c rollup.multi.config.js && rollup -c rollup.small.config.js && uglifyjs d3.js -c -m -o d3.min.js && uglifyjs d3-shape.js -c -m -o d3-shape.min.js  && uglifyjs d3-multi.js -c -m -o d3-multi.min.js && uglifyjs d3-small.js -c -m -o d3-small.min.js"
+    "prepublish": "rm -rf build && mkdir build && rollup -c && rollup -c rollup.shape.config.js && rollup -c rollup.multi.config.js && rollup -c rollup.small.config.js && uglifyjs build/d3.js -c -m -o build/d3.min.js && uglifyjs build/d3-shape.js -c -m -o build/d3-shape.min.js  && uglifyjs build/d3-multi.js -c -m -o build/d3-multi.min.js && uglifyjs build/d3-small.js -c -m -o build/d3-small.min.js"
   },
   "dependencies": {
     "d3-array": "^1.0.1",
