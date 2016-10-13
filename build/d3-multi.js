@@ -3367,7 +3367,7 @@ var identity$1 = function(x) {
   return x;
 }
 
-var sequence = function(start, stop, step) {
+var range = function(start, stop, step) {
   start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
 
   var i = -1,
@@ -3387,7 +3387,7 @@ var e2 = Math.sqrt(2);
 
 var ticks = function(start, stop, count) {
   var step = tickStep(start, stop, count);
-  return sequence(
+  return range(
     Math.ceil(start / step) * step,
     Math.floor(stop / step) * step + step / 2, // inclusive
     step
@@ -4676,7 +4676,7 @@ var phi00$1;
 var p0;
 var deltaSum = adder();
 var ranges;
-var range;
+var range$1;
 
 var boundsStream = {
   point: boundsPoint,
@@ -4697,12 +4697,12 @@ var boundsStream = {
     if (areaRingSum < 0) lambda0$1 = -(lambda1 = 180), phi0 = -(phi1 = 90);
     else if (deltaSum > epsilon) phi1 = 90;
     else if (deltaSum < -epsilon) phi0 = -90;
-    range[0] = lambda0$1, range[1] = lambda1;
+    range$1[0] = lambda0$1, range$1[1] = lambda1;
   }
 };
 
 function boundsPoint(lambda, phi) {
-  ranges.push(range = [lambda0$1 = lambda, lambda1 = lambda]);
+  ranges.push(range$1 = [lambda0$1 = lambda, lambda1 = lambda]);
   if (phi < phi0) phi0 = phi;
   if (phi > phi1) phi1 = phi;
 }
@@ -4759,7 +4759,7 @@ function boundsLineStart() {
 }
 
 function boundsLineEnd() {
-  range[0] = lambda0$1, range[1] = lambda1;
+  range$1[0] = lambda0$1, range$1[1] = lambda1;
   boundsStream.point = boundsPoint;
   p0 = null;
 }
@@ -4783,7 +4783,7 @@ function boundsRingEnd() {
   boundsRingPoint(lambda00$1, phi00$1);
   areaStream.lineEnd();
   if (abs(deltaSum) > epsilon) lambda0$1 = -(lambda1 = 180);
-  range[0] = lambda0$1, range[1] = lambda1;
+  range$1[0] = lambda0$1, range$1[1] = lambda1;
   p0 = null;
 }
 
@@ -4832,7 +4832,7 @@ var bounds = function(feature) {
     }
   }
 
-  ranges = range = null;
+  ranges = range$1 = null;
 
   return lambda0$1 === Infinity || phi0 === Infinity
       ? [[NaN, NaN], [NaN, NaN]]
@@ -5577,12 +5577,12 @@ var distance = function(a, b) {
 }
 
 function graticuleX(y0, y1, dy) {
-  var y = sequence(y0, y1 - epsilon, dy).concat(y1);
+  var y = range(y0, y1 - epsilon, dy).concat(y1);
   return function(x) { return y.map(function(y) { return [x, y]; }); };
 }
 
 function graticuleY(x0, x1, dx) {
-  var x = sequence(x0, x1 - epsilon, dx).concat(x1);
+  var x = range(x0, x1 - epsilon, dx).concat(x1);
   return function(y) { return x.map(function(x) { return [x, y]; }); };
 }
 
@@ -5598,10 +5598,10 @@ var graticule = function() {
   }
 
   function lines() {
-    return sequence(ceil(X0 / DX) * DX, X1, DX).map(X)
-        .concat(sequence(ceil(Y0 / DY) * DY, Y1, DY).map(Y))
-        .concat(sequence(ceil(x0 / dx) * dx, x1, dx).filter(function(x) { return abs(x % DX) > epsilon; }).map(x))
-        .concat(sequence(ceil(y0 / dy) * dy, y1, dy).filter(function(y) { return abs(y % DY) > epsilon; }).map(y));
+    return range(ceil(X0 / DX) * DX, X1, DX).map(X)
+        .concat(range(ceil(Y0 / DY) * DY, Y1, DY).map(Y))
+        .concat(range(ceil(x0 / dx) * dx, x1, dx).filter(function(x) { return abs(x % DX) > epsilon; }).map(x))
+        .concat(range(ceil(y0 / dy) * dy, y1, dy).filter(function(y) { return abs(y % DY) > epsilon; }).map(y));
   }
 
   graticule.lines = function() {
@@ -10241,7 +10241,7 @@ function band() {
     start += (stop - start - step * (n - paddingInner)) * align;
     bandwidth = step * (1 - paddingInner);
     if (round) start = Math.round(start), bandwidth = Math.round(bandwidth);
-    var values = sequence(n).map(function(i) { return start + step * i; });
+    var values = range(n).map(function(i) { return start + step * i; });
     return ordinalRange(reverse ? values.reverse() : values);
   }
 
@@ -12442,6 +12442,60 @@ var helper = {    d3_identity: function d3_identity(d) {
     }
   };
 
+var tile = function() {
+  var x0 = 0,
+      y0 = 0,
+      x1 = 960,
+      y1 = 500,
+      tx = (x0 + x1) / 2,
+      ty = (y0 + y1) / 2,
+      scale = 256,
+      zoomDelta = 0;
+
+  function tile() {
+    var z = Math.max(Math.log(scale) / Math.LN2 - 8, 0),
+        z0 = Math.round(z + zoomDelta),
+        k = Math.pow(2, z - z0 + 8),
+        x = tx - scale / 2,
+        y = ty - scale / 2,
+        tiles = [],
+        cols = range(Math.max(0, Math.floor((x0 - x) / k)), Math.max(0, Math.ceil((x1 - x) / k))),
+        rows = range(Math.max(0, Math.floor((y0 - y) / k)), Math.max(0, Math.ceil((y1 - y) / k)));
+
+    rows.forEach(function(y) {
+      cols.forEach(function(x) {
+        tiles.push([x, y, z0]);
+      });
+    });
+
+    tiles.translate = [x / k, y / k];
+    tiles.scale = k;
+    return tiles;
+  }
+
+  tile.size = function(_) {
+    return arguments.length ? (x0 = y0 = 0, x1 = +_[0], y1 = +_[1], tile) : [x1, y1];
+  };
+
+  tile.extent = function(_) {
+    return arguments.length ? (x0 = +_[0][0], y0 = +_[0][1], x1 = +_[1][0], y1 = +_[1][1], tile) : [[x0, y0], [x1, y1]];
+  };
+
+  tile.scale = function(_) {
+    return arguments.length ? (scale = +_, tile) : scale;
+  };
+
+  tile.translate = function(_) {
+    return arguments.length ? (tx = +_[0], ty = +_[1], tile) : [tx, ty];
+  };
+
+  tile.zoomDelta = function(_) {
+    return arguments.length ? (zoomDelta = +_, tile) : zoomDelta;
+  };
+
+  return tile;
+}
+
 var helper$1 = {
 
   d3_identity: function (d) {
@@ -13310,7 +13364,7 @@ exports.min = min;
 exports.pairs = pairs;
 exports.permute = permute;
 exports.quantile = threshold;
-exports.range = sequence;
+exports.range = range;
 exports.scan = scan;
 exports.shuffle = shuffle;
 exports.sum = sum;
@@ -13522,6 +13576,7 @@ exports.randomLogNormal = logNormal;
 exports.randomBates = bates;
 exports.randomIrwinHall = irwinHall;
 exports.randomExponential = exponential$1;
+exports.tile = tile;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
