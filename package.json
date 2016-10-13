@@ -1,6 +1,6 @@
 {
   "name": "d3-bundle-element",
-  "version": "1.2.0",
+  "version": "1.4.2",
   "description": "polymer element for importing d3.js (v4) as optimized bundle",
   "keywords": [
     "web-component",
