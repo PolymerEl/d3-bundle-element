@@ -1,6 +1,6 @@
 {
   "name": "d3-bundle-element",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "polymer element for importing d3.js (v4) as optimized bundle",
   "keywords": [
     "web-component",
@@ -55,6 +55,7 @@
     "d3-tile": "^0.0.3",
     "topojson": "^1.6.0",
     "d3-selection-multi": "^1.0.0",
+    "d3-hexbin" : "^0.2.0",
     "d3-svg-legend": "https://github.com/christophe-g/d3-legend#mergeSelection"
   },
   "devDependencies": {

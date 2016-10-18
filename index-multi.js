@@ -17,6 +17,7 @@ export * from "d3-scale"
 export * from "d3-random"
 export * from "d3-svg-legend"
 export * from "d3-tile"
+export * from "d3-hexbin"
 
 export {
   timeInterval,
