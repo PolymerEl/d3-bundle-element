@@ -11,11 +11,15 @@ export * from "d3-zoom"
 export * from "d3-ease"
 export * from "d3-axis"
 export * from "d3-shape"
+export * from "d3-path"
 export * from "d3-color"
 export * from "d3-interpolate"
 export * from "d3-scale"
 export * from "d3-random"
-export * from "d3-svg-legend"
+export * from "d3-color"
+export * from "d3-format"
+export * from "d3-collection"
+// export * from "d3-svg-legend"
 export * from "d3-tile"
 export * from "d3-hexbin"
 
@@ -83,16 +87,16 @@ export {
   utcYears
 } from "d3-time";
 
-export {
-  format,
-  formatPrefix,
-  formatLocale,
-  formatDefaultLocale,
-  formatSpecifier,
-  precisionFixed,
-  precisionPrefix,
-  precisionRound
-} from "d3-format";
+// export {
+//   format,
+//   formatPrefix,
+//   formatLocale,
+//   formatDefaultLocale,
+//   formatSpecifier,
+//   precisionFixed,
+//   precisionPrefix,
+//   precisionRound
+// } from "d3-format";
 
 export {
   timeFormat,
@@ -106,25 +110,30 @@ export {
 } from "d3-time-format";
 
 
-export {
-  entries,
-  keys,
-  values,
-  map,
-  set,
-  nest
-} from "d3-collection";
+// export {
+//   entries,
+//   keys,
+//   values,
+//   map,
+//   set,
+//   nest
+// } from "d3-collection";
 
 /* Other Plugins */
+
 import legendColor from 'd3-svg-legend/src/color.js'
 import legendSize from 'd3-svg-legend/src/size.js'
 import legendSymbol from 'd3-svg-legend/src/symbol.js'
+import legendSHelpers from 'd3-svg-legend/src/helpers.js'
 
 export  {
   legendColor,
   legendSize,
-  legendSymbol
+  legendSymbol,
+  legendSHelpers
+  
 };
+
 
 // export {
 //   default as constant

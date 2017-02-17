@@ -45,6 +45,32 @@ var creator = function(name) {
 
 var nextId = 0;
 
+function local() {
+  return new Local;
+}
+
+function Local() {
+  this._ = "@" + (++nextId).toString(36);
+}
+
+Local.prototype = local.prototype = {
+  constructor: Local,
+  get: function(node) {
+    var id = this._;
+    while (!(id in node)) if (!(node = node.parentNode)) return;
+    return node[id];
+  },
+  set: function(node, value) {
+    return node[this._] = value;
+  },
+  remove: function(node) {
+    return this._ in node && delete node[this._];
+  },
+  toString: function() {
+    return this._;
+  }
+};
+
 var matcher = function(selector) {
   return function() {
     return this.matches(selector);
@@ -3129,6 +3155,92 @@ var active = function(node, name) {
   return null;
 }
 
+function attrsFunction(selection$$1, map) {
+  return selection$$1.each(function() {
+    var x = map.apply(this, arguments), s = select(this);
+    for (var name in x) s.attr(name, x[name]);
+  });
+}
+
+function attrsObject(selection$$1, map) {
+  for (var name in map) selection$$1.attr(name, map[name]);
+  return selection$$1;
+}
+
+var selection_attrs = function(map) {
+  return (typeof map === "function" ? attrsFunction : attrsObject)(this, map);
+}
+
+function stylesFunction(selection$$1, map, priority) {
+  return selection$$1.each(function() {
+    var x = map.apply(this, arguments), s = select(this);
+    for (var name in x) s.style(name, x[name], priority);
+  });
+}
+
+function stylesObject(selection$$1, map, priority) {
+  for (var name in map) selection$$1.style(name, map[name], priority);
+  return selection$$1;
+}
+
+var selection_styles = function(map, priority) {
+  return (typeof map === "function" ? stylesFunction : stylesObject)(this, map, priority == null ? "" : priority);
+}
+
+function propertiesFunction(selection$$1, map) {
+  return selection$$1.each(function() {
+    var x = map.apply(this, arguments), s = select(this);
+    for (var name in x) s.property(name, x[name]);
+  });
+}
+
+function propertiesObject(selection$$1, map) {
+  for (var name in map) selection$$1.property(name, map[name]);
+  return selection$$1;
+}
+
+var selection_properties = function(map) {
+  return (typeof map === "function" ? propertiesFunction : propertiesObject)(this, map);
+}
+
+function attrsFunction$1(transition, map) {
+  return transition.each(function() {
+    var x = map.apply(this, arguments), t = select(this).transition(transition);
+    for (var name in x) t.attr(name, x[name]);
+  });
+}
+
+function attrsObject$1(transition, map) {
+  for (var name in map) transition.attr(name, map[name]);
+  return transition;
+}
+
+var transition_attrs = function(map) {
+  return (typeof map === "function" ? attrsFunction$1 : attrsObject$1)(this, map);
+}
+
+function stylesFunction$1(transition, map, priority) {
+  return transition.each(function() {
+    var x = map.apply(this, arguments), t = select(this).transition(transition);
+    for (var name in x) t.style(name, x[name], priority);
+  });
+}
+
+function stylesObject$1(transition, map, priority) {
+  for (var name in map) transition.style(name, map[name], priority);
+  return transition;
+}
+
+var transition_styles = function(map, priority) {
+  return (typeof map === "function" ? stylesFunction$1 : stylesObject$1)(this, map, priority == null ? "" : priority);
+}
+
+selection.prototype.attrs = selection_attrs;
+selection.prototype.styles = selection_styles;
+selection.prototype.properties = selection_properties;
+transition.prototype.attrs = transition_attrs;
+transition.prototype.styles = transition_styles;
+
 var ascending$1 = function(a, b) {
   return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
 }
@@ -3167,6 +3279,11 @@ function ascendingComparator(f) {
 
 var ascendingBisect = bisector(ascending$1);
 var bisectRight = ascendingBisect.right;
+var bisectLeft = ascendingBisect.left;
+
+var descending = function(a, b) {
+  return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+}
 
 var number = function(x) {
   return x === null ? NaN : +x;
@@ -3291,6 +3408,70 @@ var sturges = function(values) {
   return Math.ceil(Math.log(values.length) / Math.LN2) + 1;
 }
 
+var histogram = function() {
+  var value = identity$1,
+      domain = extent,
+      threshold = sturges;
+
+  function histogram(data) {
+    var i,
+        n = data.length,
+        x,
+        values = new Array(n);
+
+    for (i = 0; i < n; ++i) {
+      values[i] = value(data[i], i, data);
+    }
+
+    var xz = domain(values),
+        x0 = xz[0],
+        x1 = xz[1],
+        tz = threshold(values, x0, x1);
+
+    // Convert number of thresholds into uniform thresholds.
+    if (!Array.isArray(tz)) tz = ticks(x0, x1, tz);
+
+    // Remove any thresholds outside the domain.
+    var m = tz.length;
+    while (tz[0] <= x0) tz.shift(), --m;
+    while (tz[m - 1] >= x1) tz.pop(), --m;
+
+    var bins = new Array(m + 1),
+        bin;
+
+    // Initialize bins.
+    for (i = 0; i <= m; ++i) {
+      bin = bins[i] = [];
+      bin.x0 = i > 0 ? tz[i - 1] : x0;
+      bin.x1 = i < m ? tz[i] : x1;
+    }
+
+    // Assign data to bins by value, ignoring any outside the domain.
+    for (i = 0; i < n; ++i) {
+      x = values[i];
+      if (x0 <= x && x <= x1) {
+        bins[bisectRight(tz, x, 0, m)].push(data[i]);
+      }
+    }
+
+    return bins;
+  }
+
+  histogram.value = function(_) {
+    return arguments.length ? (value = typeof _ === "function" ? _ : constant$2(_), histogram) : value;
+  };
+
+  histogram.domain = function(_) {
+    return arguments.length ? (domain = typeof _ === "function" ? _ : constant$2([_[0], _[1]]), histogram) : domain;
+  };
+
+  histogram.thresholds = function(_) {
+    return arguments.length ? (threshold = typeof _ === "function" ? _ : Array.isArray(_) ? constant$2(slice.call(_)) : constant$2(_), histogram) : threshold;
+  };
+
+  return histogram;
+}
+
 var threshold = function(array, p, f) {
   if (f == null) f = number;
   if (!(n = array.length)) return;
@@ -3302,6 +3483,15 @@ var threshold = function(array, p, f) {
       a = +f(array[i], i, array),
       b = +f(array[i + 1], i + 1, array);
   return a + (b - a) * (h - i);
+}
+
+var freedmanDiaconis = function(values, min, max) {
+  values = map.call(values, number).sort(ascending$1);
+  return Math.ceil((max - min) / (2 * (threshold(values, 0.75) - threshold(values, 0.25)) * Math.pow(values.length, -1 / 3)));
+}
+
+var scott = function(values, min, max) {
+  return Math.ceil((max - min) / (3.5 * deviation(values) * Math.pow(values.length, -1 / 3)));
 }
 
 var max = function(array, f) {
@@ -3323,6 +3513,63 @@ var max = function(array, f) {
   return a;
 }
 
+var mean = function(array, f) {
+  var s = 0,
+      n = array.length,
+      a,
+      i = -1,
+      j = n;
+
+  if (f == null) {
+    while (++i < n) if (!isNaN(a = number(array[i]))) s += a; else --j;
+  }
+
+  else {
+    while (++i < n) if (!isNaN(a = number(f(array[i], i, array)))) s += a; else --j;
+  }
+
+  if (j) return s / j;
+}
+
+var median = function(array, f) {
+  var numbers = [],
+      n = array.length,
+      a,
+      i = -1;
+
+  if (f == null) {
+    while (++i < n) if (!isNaN(a = number(array[i]))) numbers.push(a);
+  }
+
+  else {
+    while (++i < n) if (!isNaN(a = number(f(array[i], i, array)))) numbers.push(a);
+  }
+
+  return threshold(numbers.sort(ascending$1), 0.5);
+}
+
+var merge = function(arrays) {
+  var n = arrays.length,
+      m,
+      i = -1,
+      j = 0,
+      merged,
+      array;
+
+  while (++i < n) j += arrays[i].length;
+  merged = new Array(j);
+
+  while (--n >= 0) {
+    array = arrays[n];
+    m = array.length;
+    while (--m >= 0) {
+      merged[--j] = array[m];
+    }
+  }
+
+  return merged;
+}
+
 var min = function(array, f) {
   var i = -1,
       n = array.length,
@@ -3342,6 +3589,65 @@ var min = function(array, f) {
   return a;
 }
 
+var pairs = function(array) {
+  var i = 0, n = array.length - 1, p = array[0], pairs = new Array(n < 0 ? 0 : n);
+  while (i < n) pairs[i] = [p, p = array[++i]];
+  return pairs;
+}
+
+var permute = function(array, indexes) {
+  var i = indexes.length, permutes = new Array(i);
+  while (i--) permutes[i] = array[indexes[i]];
+  return permutes;
+}
+
+var scan = function(array, compare) {
+  if (!(n = array.length)) return;
+  var i = 0,
+      n,
+      j = 0,
+      xi,
+      xj = array[j];
+
+  if (!compare) compare = ascending$1;
+
+  while (++i < n) if (compare(xi = array[i], xj) < 0 || compare(xj, xj) !== 0) xj = xi, j = i;
+
+  if (compare(xj, xj) === 0) return j;
+}
+
+var shuffle = function(array, i0, i1) {
+  var m = (i1 == null ? array.length : i1) - (i0 = i0 == null ? 0 : +i0),
+      t,
+      i;
+
+  while (m) {
+    i = Math.random() * m-- | 0;
+    t = array[m + i0];
+    array[m + i0] = array[i + i0];
+    array[i + i0] = t;
+  }
+
+  return array;
+}
+
+var sum = function(array, f) {
+  var s = 0,
+      n = array.length,
+      a,
+      i = -1;
+
+  if (f == null) {
+    while (++i < n) if (a = +array[i]) s += a; // Note: zero and null are equivalent.
+  }
+
+  else {
+    while (++i < n) if (a = +f(array[i], i, array)) s += a;
+  }
+
+  return s;
+}
+
 var transpose = function(matrix) {
   if (!(n = matrix.length)) return [];
   for (var i = -1, m = min(matrix, length), transpose = new Array(m); ++i < m;) {
@@ -3354,6 +3660,10 @@ var transpose = function(matrix) {
 
 function length(d) {
   return d.length;
+}
+
+var zip = function() {
+  return transpose(arguments);
 }
 
 var prefix = "$";
@@ -3430,6 +3740,62 @@ function map$1(object, f) {
   return map;
 }
 
+var nest = function() {
+  var keys = [],
+      sortKeys = [],
+      sortValues,
+      rollup,
+      nest;
+
+  function apply(array, depth, createResult, setResult) {
+    if (depth >= keys.length) return rollup != null
+        ? rollup(array) : (sortValues != null
+        ? array.sort(sortValues)
+        : array);
+
+    var i = -1,
+        n = array.length,
+        key = keys[depth++],
+        keyValue,
+        value,
+        valuesByKey = map$1(),
+        values,
+        result = createResult();
+
+    while (++i < n) {
+      if (values = valuesByKey.get(keyValue = key(value = array[i]) + "")) {
+        values.push(value);
+      } else {
+        valuesByKey.set(keyValue, [value]);
+      }
+    }
+
+    valuesByKey.each(function(values, key) {
+      setResult(result, key, apply(values, depth, createResult, setResult));
+    });
+
+    return result;
+  }
+
+  function entries(map, depth) {
+    if (++depth > keys.length) return map;
+    var array, sortKey = sortKeys[depth - 1];
+    if (rollup != null && depth >= keys.length) array = map.entries();
+    else array = [], map.each(function(v, k) { array.push({key: k, values: entries(v, depth)}); });
+    return sortKey != null ? array.sort(function(a, b) { return sortKey(a.key, b.key); }) : array;
+  }
+
+  return nest = {
+    object: function(array) { return apply(array, 0, createObject, setObject); },
+    map: function(array) { return apply(array, 0, createMap, setMap); },
+    entries: function(array) { return entries(apply(array, 0, createMap, setMap), 0); },
+    key: function(d) { keys.push(d); return nest; },
+    sortKeys: function(order) { sortKeys[keys.length - 1] = order; return nest; },
+    sortValues: function(order) { sortValues = order; return nest; },
+    rollup: function(f) { rollup = f; return nest; }
+  };
+}
+
 function createObject() {
   return {};
 }
@@ -3480,6 +3846,18 @@ function set$2(object, f) {
   }
 
   return set;
+}
+
+var keys = function(map) {
+  var keys = [];
+  for (var key in map) keys.push(key);
+  return keys;
+}
+
+var values = function(map) {
+  var values = [];
+  for (var key in map) values.push(map[key]);
+  return values;
 }
 
 var entries = function(map) {
@@ -5507,104 +5885,85 @@ function sequential(interpolator) {
   return linearish(scale);
 }
 
-function attrsFunction(selection$$1, map) {
-  return selection$$1.each(function() {
-    var x = map.apply(this, arguments), s = select(this);
-    for (var name in x) s.attr(name, x[name]);
-  });
-}
+// export {
+//   event,
+//   select,
+//   selectAll,
+//   mouse,
+//   touch, 
+//   touches, 
+//   customEvent
+// } from "d3-selection";
 
-function attrsObject(selection$$1, map) {
-  for (var name in map) selection$$1.attr(name, map[name]);
-  return selection$$1;
-}
+// export {
+//   transition,
+//   active,
+//   interrupt
+// } from "d3-transition";
 
-var selection_attrs = function(map) {
-  return (typeof map === "function" ? attrsFunction : attrsObject)(this, map);
-}
 
-function stylesFunction(selection$$1, map, priority) {
-  return selection$$1.each(function() {
-    var x = map.apply(this, arguments), s = select(this);
-    for (var name in x) s.style(name, x[name], priority);
-  });
-}
+// export {
+//   range,
+//   min,
+//   max
+// } from "d3-array";
 
-function stylesObject(selection$$1, map, priority) {
-  for (var name in map) selection$$1.style(name, map[name], priority);
-  return selection$$1;
-}
+// export {
+//  entries
+// } from "d3-collection"
 
-var selection_styles = function(map, priority) {
-  return (typeof map === "function" ? stylesFunction : stylesObject)(this, map, priority == null ? "" : priority);
-}
-
-function propertiesFunction(selection$$1, map) {
-  return selection$$1.each(function() {
-    var x = map.apply(this, arguments), s = select(this);
-    for (var name in x) s.property(name, x[name]);
-  });
-}
-
-function propertiesObject(selection$$1, map) {
-  for (var name in map) selection$$1.property(name, map[name]);
-  return selection$$1;
-}
-
-var selection_properties = function(map) {
-  return (typeof map === "function" ? propertiesFunction : propertiesObject)(this, map);
-}
-
-function attrsFunction$1(transition, map) {
-  return transition.each(function() {
-    var x = map.apply(this, arguments), t = select(this).transition(transition);
-    for (var name in x) t.attr(name, x[name]);
-  });
-}
-
-function attrsObject$1(transition, map) {
-  for (var name in map) transition.attr(name, map[name]);
-  return transition;
-}
-
-var transition_attrs = function(map) {
-  return (typeof map === "function" ? attrsFunction$1 : attrsObject$1)(this, map);
-}
-
-function stylesFunction$1(transition, map, priority) {
-  return transition.each(function() {
-    var x = map.apply(this, arguments), t = select(this).transition(transition);
-    for (var name in x) t.style(name, x[name], priority);
-  });
-}
-
-function stylesObject$1(transition, map, priority) {
-  for (var name in map) transition.style(name, map[name], priority);
-  return transition;
-}
-
-var transition_styles = function(map, priority) {
-  return (typeof map === "function" ? stylesFunction$1 : stylesObject$1)(this, map, priority == null ? "" : priority);
-}
-
-selection.prototype.attrs = selection_attrs;
-selection.prototype.styles = selection_styles;
-selection.prototype.properties = selection_properties;
-transition.prototype.attrs = transition_attrs;
-transition.prototype.styles = transition_styles;
-
+exports.creator = creator;
+exports.local = local;
+exports.matcher = matcher$1;
+exports.mouse = mouse;
+exports.namespace = namespace;
+exports.namespaces = namespaces;
 exports.select = select;
 exports.selectAll = selectAll;
-exports.mouse = mouse;
+exports.selection = selection;
+exports.selector = selector;
+exports.selectorAll = selectorAll;
 exports.touch = touch;
 exports.touches = touches;
+exports.window = window;
 exports.customEvent = customEvent;
 exports.transition = transition;
 exports.active = active;
 exports.interrupt = interrupt;
-exports.range = sequence;
-exports.min = min;
+exports.bisect = bisectRight;
+exports.bisectRight = bisectRight;
+exports.bisectLeft = bisectLeft;
+exports.ascending = ascending$1;
+exports.bisector = bisector;
+exports.descending = descending;
+exports.deviation = deviation;
+exports.extent = extent;
+exports.histogram = histogram;
+exports.thresholdFreedmanDiaconis = freedmanDiaconis;
+exports.thresholdScott = scott;
+exports.thresholdSturges = sturges;
 exports.max = max;
+exports.mean = mean;
+exports.median = median;
+exports.merge = merge;
+exports.min = min;
+exports.pairs = pairs;
+exports.permute = permute;
+exports.quantile = threshold;
+exports.range = sequence;
+exports.scan = scan;
+exports.shuffle = shuffle;
+exports.sum = sum;
+exports.ticks = ticks;
+exports.tickStep = tickStep;
+exports.transpose = transpose;
+exports.variance = variance;
+exports.zip = zip;
+exports.nest = nest;
+exports.set = set$2;
+exports.map = map$1;
+exports.keys = keys;
+exports.values = values;
 exports.entries = entries;
 exports.easeLinear = linear$1;
 exports.easeQuad = quadInOut;
