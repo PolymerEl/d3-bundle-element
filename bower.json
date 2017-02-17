@@ -1,6 +1,6 @@
 {
-  "name": "d3-element",
-  "version": "3.0.0",
+  "name": "d3-bundle-element",
+  "version": "1.6.0",
   "authors": [
     "christophe-g <christophe.geiser@gmail.com>"
   ],
@@ -9,7 +9,7 @@
   "dependencies": {
     "d3": "4.x"
   },
-  "main": "d3-element.html",
+  "main": "d3-bundle-element.html",
   "moduleType": [],
   "keywords": [
     "d3.js",
