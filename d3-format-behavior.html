@@ -15,7 +15,12 @@
 	 		d3Format : {
 	 			type: Function,
 	 			notify: true,
-	 			computed: '__computeFormat(specifyer)'
+	 			computed: '__computeFormat(specifyer, isTimeFormat)'
+	 		},
+
+	 		isTimeFormat: {
+	 			type: Boolean, 
+	 			value: false
 	 		},
 
 	 		/**
@@ -25,10 +30,12 @@
 	 			type: String,
 	 			value: '.1f'
 	 		}
+
 	 	},
 	 	
-	 	__computeFormat: function(specifyer) {
-	 		return d3.format(specifyer);
-	 	}
+	 	__computeFormat: function(specifyer,  isTime) {
+	 		return isTime ? d3.timeFormat(specifyer) :  d3.format(specifyer);
+	 	},
+
 	};
 </script>

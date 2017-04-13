@@ -18,7 +18,7 @@ var namespace = function(name) {
   var prefix = name += "", i = prefix.indexOf(":");
   if (i >= 0 && (prefix = name.slice(0, i)) !== "xmlns") name = name.slice(i + 1);
   return namespaces.hasOwnProperty(prefix) ? {space: namespaces[prefix], local: name} : name;
-}
+};
 
 function creatorInherit(name) {
   return function() {
@@ -41,7 +41,7 @@ var creator = function(name) {
   return (fullname.local
       ? creatorFixed
       : creatorInherit)(fullname);
-}
+};
 
 var nextId = 0;
 
@@ -189,7 +189,7 @@ var selection_on = function(typename, value, capture) {
   if (capture == null) capture = false;
   for (i = 0; i < n; ++i) this.each(on(typenames[i], value, capture));
   return this;
-}
+};
 
 function customEvent(event1, listener, that, args) {
   var event0 = exports.event;
@@ -206,7 +206,7 @@ var sourceEvent = function() {
   var current = exports.event, source;
   while (source = current.sourceEvent) current = source;
   return current;
-}
+};
 
 var point = function(node, event) {
   var svg = node.ownerSVGElement || node;
@@ -220,13 +220,13 @@ var point = function(node, event) {
 
   var rect = node.getBoundingClientRect();
   return [event.clientX - rect.left - node.clientLeft, event.clientY - rect.top - node.clientTop];
-}
+};
 
 var mouse = function(node) {
   var event = sourceEvent();
   if (event.changedTouches) event = event.changedTouches[0];
   return point(node, event);
-}
+};
 
 function none() {}
 
@@ -234,7 +234,7 @@ var selector = function(selector) {
   return selector == null ? none : function() {
     return this.querySelector(selector);
   };
-}
+};
 
 var selection_select = function(select) {
   if (typeof select !== "function") select = selector(select);
@@ -249,7 +249,7 @@ var selection_select = function(select) {
   }
 
   return new Selection(subgroups, this._parents);
-}
+};
 
 function empty() {
   return [];
@@ -259,7 +259,7 @@ var selectorAll = function(selector) {
   return selector == null ? empty : function() {
     return this.querySelectorAll(selector);
   };
-}
+};
 
 var selection_selectAll = function(select) {
   if (typeof select !== "function") select = selectorAll(select);
@@ -274,7 +274,7 @@ var selection_selectAll = function(select) {
   }
 
   return new Selection(subgroups, parents);
-}
+};
 
 var selection_filter = function(match) {
   if (typeof match !== "function") match = matcher$1(match);
@@ -288,15 +288,15 @@ var selection_filter = function(match) {
   }
 
   return new Selection(subgroups, this._parents);
-}
+};
 
 var sparse = function(update) {
   return new Array(update.length);
-}
+};
 
 var selection_enter = function() {
   return new Selection(this._enter || this._groups.map(sparse), this._parents);
-}
+};
 
 function EnterNode(parent, datum) {
   this.ownerDocument = parent.ownerDocument;
@@ -318,7 +318,7 @@ var constant = function(x) {
   return function() {
     return x;
   };
-}
+};
 
 var keyPrefix = "$"; // Protect against keys like “__proto__”.
 
@@ -433,11 +433,11 @@ var selection_data = function(value, key) {
   update._enter = enter;
   update._exit = exit;
   return update;
-}
+};
 
 var selection_exit = function() {
   return new Selection(this._exit || this._groups.map(sparse), this._parents);
-}
+};
 
 var selection_merge = function(selection) {
 
@@ -454,7 +454,7 @@ var selection_merge = function(selection) {
   }
 
   return new Selection(merges, this._parents);
-}
+};
 
 var selection_order = function() {
 
@@ -468,7 +468,7 @@ var selection_order = function() {
   }
 
   return this;
-}
+};
 
 var selection_sort = function(compare) {
   if (!compare) compare = ascending;
@@ -487,7 +487,7 @@ var selection_sort = function(compare) {
   }
 
   return new Selection(sortgroups, this._parents).order();
-}
+};
 
 function ascending(a, b) {
   return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
@@ -498,13 +498,13 @@ var selection_call = function() {
   arguments[0] = this;
   callback.apply(null, arguments);
   return this;
-}
+};
 
 var selection_nodes = function() {
   var nodes = new Array(this.size()), i = -1;
   this.each(function() { nodes[++i] = this; });
   return nodes;
-}
+};
 
 var selection_node = function() {
 
@@ -516,17 +516,17 @@ var selection_node = function() {
   }
 
   return null;
-}
+};
 
 var selection_size = function() {
   var size = 0;
   this.each(function() { ++size; });
   return size;
-}
+};
 
 var selection_empty = function() {
   return !this.node();
-}
+};
 
 var selection_each = function(callback) {
 
@@ -537,7 +537,7 @@ var selection_each = function(callback) {
   }
 
   return this;
-}
+};
 
 function attrRemove(name) {
   return function() {
@@ -593,13 +593,13 @@ var selection_attr = function(name, value) {
       ? (fullname.local ? attrRemoveNS : attrRemove) : (typeof value === "function"
       ? (fullname.local ? attrFunctionNS : attrFunction)
       : (fullname.local ? attrConstantNS : attrConstant)))(fullname, value));
-}
+};
 
 var window = function(node) {
   return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
       || (node.document && node) // node is a Window
       || node.defaultView; // node is a Document
-}
+};
 
 function styleRemove(name) {
   return function() {
@@ -631,7 +631,7 @@ var selection_style = function(name, value, priority) {
       : window(node = this.node())
           .getComputedStyle(node, null)
           .getPropertyValue(name);
-}
+};
 
 function propertyRemove(name) {
   return function() {
@@ -660,7 +660,7 @@ var selection_property = function(name, value) {
           ? propertyFunction
           : propertyConstant)(name, value))
       : this.node()[name];
-}
+};
 
 function classArray(string) {
   return string.trim().split(/^|\s+/);
@@ -736,7 +736,7 @@ var selection_classed = function(name, value) {
       ? classedFunction : value
       ? classedTrue
       : classedFalse)(names, value));
-}
+};
 
 function textRemove() {
   this.textContent = "";
@@ -762,7 +762,7 @@ var selection_text = function(value) {
           ? textFunction
           : textConstant)(value))
       : this.node().textContent;
-}
+};
 
 function htmlRemove() {
   this.innerHTML = "";
@@ -788,7 +788,7 @@ var selection_html = function(value) {
           ? htmlFunction
           : htmlConstant)(value))
       : this.node().innerHTML;
-}
+};
 
 function raise() {
   if (this.nextSibling) this.parentNode.appendChild(this);
@@ -796,7 +796,7 @@ function raise() {
 
 var selection_raise = function() {
   return this.each(raise);
-}
+};
 
 function lower() {
   if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
@@ -804,14 +804,14 @@ function lower() {
 
 var selection_lower = function() {
   return this.each(lower);
-}
+};
 
 var selection_append = function(name) {
   var create = typeof name === "function" ? name : creator(name);
   return this.select(function() {
     return this.appendChild(create.apply(this, arguments));
   });
-}
+};
 
 function constantNull() {
   return null;
@@ -823,7 +823,7 @@ var selection_insert = function(name, before) {
   return this.select(function() {
     return this.insertBefore(create.apply(this, arguments), select.apply(this, arguments) || null);
   });
-}
+};
 
 function remove() {
   var parent = this.parentNode;
@@ -832,13 +832,13 @@ function remove() {
 
 var selection_remove = function() {
   return this.each(remove);
-}
+};
 
 var selection_datum = function(value) {
   return arguments.length
       ? this.property("__data__", value)
       : this.node().__data__;
-}
+};
 
 function dispatchEvent(node, type, params) {
   var window$$1 = window(node),
@@ -871,7 +871,7 @@ var selection_dispatch = function(type, params) {
   return this.each((typeof params === "function"
       ? dispatchFunction
       : dispatchConstant)(type, params));
-}
+};
 
 var root = [null];
 
@@ -921,13 +921,13 @@ var select = function(selector) {
   return typeof selector === "string"
       ? new Selection([[document.querySelector(selector)]], [document.documentElement])
       : new Selection([[selector]], root);
-}
+};
 
 var selectAll = function(selector) {
   return typeof selector === "string"
       ? new Selection([document.querySelectorAll(selector)], [document.documentElement])
       : new Selection([selector == null ? [] : selector], root);
-}
+};
 
 var touch = function(node, touches, identifier) {
   if (arguments.length < 3) identifier = touches, touches = sourceEvent().changedTouches;
@@ -939,7 +939,7 @@ var touch = function(node, touches, identifier) {
   }
 
   return null;
-}
+};
 
 var touches = function(node, touches) {
   if (touches == null) touches = sourceEvent().touches;
@@ -949,7 +949,7 @@ var touches = function(node, touches) {
   }
 
   return points;
-}
+};
 
 var noop = {value: function() {}};
 
@@ -1140,7 +1140,7 @@ function sleep(time) {
     if (time < Infinity) timeout = setTimeout(wake, delay);
     if (interval) interval = clearInterval(interval);
   } else {
-    if (!interval) interval = setInterval(poke, pokeDelay);
+    if (!interval) clockLast = clockNow, interval = setInterval(poke, pokeDelay);
     frame = 1, setFrame(wake);
   }
 }
@@ -1153,7 +1153,7 @@ var timeout$1 = function(callback, delay, time) {
     callback(elapsed + delay);
   }, delay, time);
   return t;
-}
+};
 
 var emptyOn = dispatch("start", "end", "interrupt");
 var emptyTween = [];
@@ -1183,7 +1183,7 @@ var schedule = function(node, name, id, index, group, timing) {
     timer: null,
     state: CREATED
   });
-}
+};
 
 function init(node, id) {
   var schedule = node.__transition;
@@ -1321,7 +1321,7 @@ var interrupt = function(node, name) {
 
   for (i in schedules) {
     if ((schedule = schedules[i]).name !== name) { empty = false; continue; }
-    active = schedule.state === STARTED;
+    active = schedule.state > STARTING && schedule.state < ENDING;
     schedule.state = ENDED;
     schedule.timer.stop();
     if (active) schedule.on.call("interrupt", node, node.__data__, schedule.index, schedule.group);
@@ -1329,18 +1329,18 @@ var interrupt = function(node, name) {
   }
 
   if (empty) delete node.__transition;
-}
+};
 
 var selection_interrupt = function(name) {
   return this.each(function() {
     interrupt(this, name);
   });
-}
+};
 
 var define = function(constructor, factory, prototype) {
   constructor.prototype = factory.prototype = prototype;
   prototype.constructor = constructor;
-}
+};
 
 function extend(parent, definition) {
   var prototype = Object.create(parent.prototype);
@@ -1353,14 +1353,17 @@ function Color() {}
 var darker = 0.7;
 var brighter = 1 / darker;
 
+var reI = "\\s*([+-]?\\d+)\\s*";
+var reN = "\\s*([+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?)\\s*";
+var reP = "\\s*([+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?)%\\s*";
 var reHex3 = /^#([0-9a-f]{3})$/;
 var reHex6 = /^#([0-9a-f]{6})$/;
-var reRgbInteger = /^rgb\(\s*([-+]?\d+)\s*,\s*([-+]?\d+)\s*,\s*([-+]?\d+)\s*\)$/;
-var reRgbPercent = /^rgb\(\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*\)$/;
-var reRgbaInteger = /^rgba\(\s*([-+]?\d+)\s*,\s*([-+]?\d+)\s*,\s*([-+]?\d+)\s*,\s*([-+]?\d+(?:\.\d+)?)\s*\)$/;
-var reRgbaPercent = /^rgba\(\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)\s*\)$/;
-var reHslPercent = /^hsl\(\s*([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*\)$/;
-var reHslaPercent = /^hsla\(\s*([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)%\s*,\s*([-+]?\d+(?:\.\d+)?)\s*\)$/;
+var reRgbInteger = new RegExp("^rgb\\(" + [reI, reI, reI] + "\\)$");
+var reRgbPercent = new RegExp("^rgb\\(" + [reP, reP, reP] + "\\)$");
+var reRgbaInteger = new RegExp("^rgba\\(" + [reI, reI, reI, reN] + "\\)$");
+var reRgbaPercent = new RegExp("^rgba\\(" + [reP, reP, reP, reN] + "\\)$");
+var reHslPercent = new RegExp("^hsl\\(" + [reN, reP, reP] + "\\)$");
+var reHslaPercent = new RegExp("^hsla\\(" + [reN, reP, reP, reN] + "\\)$");
 
 var named = {
   aliceblue: 0xf0f8ff,
@@ -1858,7 +1861,7 @@ var basis$1 = function(values) {
         v3 = i < n - 1 ? values[i + 2] : 2 * v2 - v1;
     return basis((t - i / n) * n, v0, v1, v2, v3);
   };
-}
+};
 
 var basisClosed = function(values) {
   var n = values.length;
@@ -1870,13 +1873,13 @@ var basisClosed = function(values) {
         v3 = values[(i + 2) % n];
     return basis((t - i / n) * n, v0, v1, v2, v3);
   };
-}
+};
 
 var constant$1 = function(x) {
   return function() {
     return x;
   };
-}
+};
 
 function linear(a, d) {
   return function(t) {
@@ -1913,7 +1916,7 @@ var interpolateRgb = (function rgbGamma(y) {
     var r = color$$1((start = rgb(start)).r, (end = rgb(end)).r),
         g = color$$1(start.g, end.g),
         b = color$$1(start.b, end.b),
-        opacity = color$$1(start.opacity, end.opacity);
+        opacity = nogamma(start.opacity, end.opacity);
     return function(t) {
       start.r = r(t);
       start.g = g(t);
@@ -1971,20 +1974,20 @@ var array = function(a, b) {
     for (i = 0; i < na; ++i) c[i] = x[i](t);
     return c;
   };
-}
+};
 
 var date = function(a, b) {
   var d = new Date;
   return a = +a, b -= a, function(t) {
     return d.setTime(a + b * t), d;
   };
-}
+};
 
 var reinterpolate = function(a, b) {
   return a = +a, b -= a, function(t) {
     return a + b * t;
   };
-}
+};
 
 var object = function(a, b) {
   var i = {},
@@ -2006,7 +2009,7 @@ var object = function(a, b) {
     for (k in i) c[k] = i[k](t);
     return c;
   };
-}
+};
 
 var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
 var reB = new RegExp(reA.source, "g");
@@ -2069,7 +2072,7 @@ var interpolateString = function(a, b) {
           for (var i = 0, o; i < b; ++i) s[(o = q[i]).i] = o.x(t);
           return s.join("");
         });
-}
+};
 
 var interpolateValue = function(a, b) {
   var t = typeof b, c;
@@ -2081,13 +2084,13 @@ var interpolateValue = function(a, b) {
       : Array.isArray(b) ? array
       : isNaN(b) ? object
       : reinterpolate)(a, b);
-}
+};
 
 var interpolateRound = function(a, b) {
   return a = +a, b -= a, function(t) {
     return Math.round(a + b * t);
   };
-}
+};
 
 var degrees = 180 / Math.PI;
 
@@ -2114,7 +2117,7 @@ var decompose = function(a, b, c, d, e, f) {
     scaleX: scaleX,
     scaleY: scaleY
   };
-}
+};
 
 var cssNode;
 var cssRoot;
@@ -2238,7 +2241,7 @@ var zoom = function(p0, p1) {
         uy0 + t * dy,
         w0 * Math.exp(rho * t * S)
       ];
-    }
+    };
   }
 
   // General case.
@@ -2258,13 +2261,13 @@ var zoom = function(p0, p1) {
         uy0 + u * dy,
         w0 * coshr0 / cosh(rho * s + r0)
       ];
-    }
+    };
   }
 
   i.duration = S * 1000;
 
   return i;
-}
+};
 
 function hsl$1(hue$$1) {
   return function(start, end) {
@@ -2349,7 +2352,7 @@ var quantize = function(interpolator, n) {
   var samples = new Array(n);
   for (var i = 0; i < n; ++i) samples[i] = interpolator(i / (n - 1));
   return samples;
-}
+};
 
 function tweenRemove(id, name) {
   var tween0, tween1;
@@ -2416,7 +2419,7 @@ var transition_tween = function(name, value) {
   }
 
   return this.each((value == null ? tweenRemove : tweenFunction)(id, name, value));
-}
+};
 
 function tweenValue(transition, name, value) {
   var id = transition._id;
@@ -2437,7 +2440,7 @@ var interpolate$$1 = function(a, b) {
       : b instanceof color ? interpolateRgb
       : (c = color(b)) ? (b = c, interpolateRgb)
       : interpolateString)(a, b);
-}
+};
 
 function attrRemove$1(name) {
   return function() {
@@ -2506,8 +2509,8 @@ var transition_attr = function(name, value) {
   return this.attrTween(name, typeof value === "function"
       ? (fullname.local ? attrFunctionNS$1 : attrFunction$1)(fullname, i, tweenValue(this, "attr." + name, value))
       : value == null ? (fullname.local ? attrRemoveNS$1 : attrRemove$1)(fullname)
-      : (fullname.local ? attrConstantNS$1 : attrConstant$1)(fullname, i, value));
-}
+      : (fullname.local ? attrConstantNS$1 : attrConstant$1)(fullname, i, value + ""));
+};
 
 function attrTweenNS(fullname, value) {
   function tween() {
@@ -2538,7 +2541,7 @@ var transition_attrTween = function(name, value) {
   if (typeof value !== "function") throw new Error;
   var fullname = namespace(name);
   return this.tween(key, (fullname.local ? attrTweenNS : attrTween)(fullname, value));
-}
+};
 
 function delayFunction(id, value) {
   return function() {
@@ -2560,7 +2563,7 @@ var transition_delay = function(value) {
           ? delayFunction
           : delayConstant)(id, value))
       : get(this.node(), id).delay;
-}
+};
 
 function durationFunction(id, value) {
   return function() {
@@ -2582,7 +2585,7 @@ var transition_duration = function(value) {
           ? durationFunction
           : durationConstant)(id, value))
       : get(this.node(), id).duration;
-}
+};
 
 function easeConstant(id, value) {
   if (typeof value !== "function") throw new Error;
@@ -2597,7 +2600,7 @@ var transition_ease = function(value) {
   return arguments.length
       ? this.each(easeConstant(id, value))
       : get(this.node(), id).ease;
-}
+};
 
 var transition_filter = function(match) {
   if (typeof match !== "function") match = matcher$1(match);
@@ -2611,7 +2614,7 @@ var transition_filter = function(match) {
   }
 
   return new Transition(subgroups, this._parents, this._name, this._id);
-}
+};
 
 var transition_merge = function(transition) {
   if (transition._id !== this._id) throw new Error;
@@ -2629,7 +2632,7 @@ var transition_merge = function(transition) {
   }
 
   return new Transition(merges, this._parents, this._name, this._id);
-}
+};
 
 function start(name) {
   return (name + "").trim().split(/^|\s+/).every(function(t) {
@@ -2660,7 +2663,7 @@ var transition_on = function(name, listener) {
   return arguments.length < 2
       ? get(this.node(), id).on.on(name)
       : this.each(onFunction(id, name, listener));
-}
+};
 
 function removeFunction(id) {
   return function() {
@@ -2672,7 +2675,7 @@ function removeFunction(id) {
 
 var transition_remove = function() {
   return this.on("end.remove", removeFunction(this._id));
-}
+};
 
 var transition_select = function(select$$1) {
   var name = this._name,
@@ -2691,7 +2694,7 @@ var transition_select = function(select$$1) {
   }
 
   return new Transition(subgroups, this._parents, name, id);
-}
+};
 
 var transition_selectAll = function(select$$1) {
   var name = this._name,
@@ -2714,13 +2717,13 @@ var transition_selectAll = function(select$$1) {
   }
 
   return new Transition(subgroups, parents, name, id);
-}
+};
 
 var Selection$1 = selection.prototype.constructor;
 
 var transition_selection = function() {
   return new Selection$1(this._groups, this._parents);
-}
+};
 
 function styleRemove$1(name, interpolate$$2) {
   var value00,
@@ -2775,8 +2778,8 @@ var transition_style = function(name, value, priority) {
           .on("end.style." + name, styleRemoveEnd(name))
       : this.styleTween(name, typeof value === "function"
           ? styleFunction$1(name, i, tweenValue(this, "style." + name, value))
-          : styleConstant$1(name, i, value), priority);
-}
+          : styleConstant$1(name, i, value + ""), priority);
+};
 
 function styleTween(name, value, priority) {
   function tween() {
@@ -2795,7 +2798,7 @@ var transition_styleTween = function(name, value, priority) {
   if (value == null) return this.tween(key, null);
   if (typeof value !== "function") throw new Error;
   return this.tween(key, styleTween(name, value, priority == null ? "" : priority));
-}
+};
 
 function textConstant$1(value) {
   return function() {
@@ -2814,7 +2817,7 @@ var transition_text = function(value) {
   return this.tween("text", typeof value === "function"
       ? textFunction$1(tweenValue(this, "text", value))
       : textConstant$1(value == null ? "" : value + ""));
-}
+};
 
 var transition_transition = function() {
   var name = this._name,
@@ -2836,7 +2839,7 @@ var transition_transition = function() {
   }
 
   return new Transition(groups, this._parents, name, id1);
-}
+};
 
 var id = 0;
 
@@ -3131,7 +3134,7 @@ var selection_transition = function(name) {
   }
 
   return new Transition(groups, this._parents, name, id);
-}
+};
 
 selection.prototype.interrupt = selection_interrupt;
 selection.prototype.transition = selection_transition;
@@ -3153,7 +3156,7 @@ var active = function(node, name) {
   }
 
   return null;
-}
+};
 
 function attrsFunction(selection$$1, map) {
   return selection$$1.each(function() {
@@ -3169,7 +3172,7 @@ function attrsObject(selection$$1, map) {
 
 var selection_attrs = function(map) {
   return (typeof map === "function" ? attrsFunction : attrsObject)(this, map);
-}
+};
 
 function stylesFunction(selection$$1, map, priority) {
   return selection$$1.each(function() {
@@ -3185,7 +3188,7 @@ function stylesObject(selection$$1, map, priority) {
 
 var selection_styles = function(map, priority) {
   return (typeof map === "function" ? stylesFunction : stylesObject)(this, map, priority == null ? "" : priority);
-}
+};
 
 function propertiesFunction(selection$$1, map) {
   return selection$$1.each(function() {
@@ -3201,7 +3204,7 @@ function propertiesObject(selection$$1, map) {
 
 var selection_properties = function(map) {
   return (typeof map === "function" ? propertiesFunction : propertiesObject)(this, map);
-}
+};
 
 function attrsFunction$1(transition, map) {
   return transition.each(function() {
@@ -3217,7 +3220,7 @@ function attrsObject$1(transition, map) {
 
 var transition_attrs = function(map) {
   return (typeof map === "function" ? attrsFunction$1 : attrsObject$1)(this, map);
-}
+};
 
 function stylesFunction$1(transition, map, priority) {
   return transition.each(function() {
@@ -3233,7 +3236,7 @@ function stylesObject$1(transition, map, priority) {
 
 var transition_styles = function(map, priority) {
   return (typeof map === "function" ? stylesFunction$1 : stylesObject$1)(this, map, priority == null ? "" : priority);
-}
+};
 
 selection.prototype.attrs = selection_attrs;
 selection.prototype.styles = selection_styles;
@@ -3243,7 +3246,7 @@ transition.prototype.styles = transition_styles;
 
 var ascending$1 = function(a, b) {
   return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
-}
+};
 
 var bisector = function(compare) {
   if (compare.length === 1) compare = ascendingComparator(compare);
@@ -3269,7 +3272,7 @@ var bisector = function(compare) {
       return lo;
     }
   };
-}
+};
 
 function ascendingComparator(f) {
   return function(d, x) {
@@ -3281,13 +3284,31 @@ var ascendingBisect = bisector(ascending$1);
 var bisectRight = ascendingBisect.right;
 var bisectLeft = ascendingBisect.left;
 
+var pairs = function(array, f) {
+  if (f == null) f = pair;
+  var i = 0, n = array.length - 1, p = array[0], pairs = new Array(n < 0 ? 0 : n);
+  while (i < n) pairs[i] = f(p, p = array[++i]);
+  return pairs;
+};
+
+function pair(a, b) {
+  return [a, b];
+}
+
+var cross = function(a, b, f) {
+  var na = a.length, nb = b.length, c = new Array(na * nb), ia, ib, ic, va;
+  if (f == null) f = pair;
+  for (ia = ic = 0; ia < na; ++ia) for (va = a[ia], ib = 0; ib < nb; ++ib, ++ic) c[ic] = f(va, b[ib]);
+  return c;
+};
+
 var descending = function(a, b) {
   return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
-}
+};
 
 var number = function(x) {
   return x === null ? NaN : +x;
-}
+};
 
 var variance = function(array, f) {
   var n = array.length,
@@ -3319,12 +3340,12 @@ var variance = function(array, f) {
   }
 
   if (j > 1) return s / (j - 1);
-}
+};
 
 var deviation = function(array, f) {
   var v = variance(array, f);
   return v ? Math.sqrt(v) : v;
-}
+};
 
 var extent = function(array, f) {
   var i = -1,
@@ -3350,7 +3371,7 @@ var extent = function(array, f) {
   }
 
   return [a, c];
-}
+};
 
 var array$1 = Array.prototype;
 
@@ -3361,11 +3382,11 @@ var constant$2 = function(x) {
   return function() {
     return x;
   };
-}
+};
 
 var identity$1 = function(x) {
   return x;
-}
+};
 
 var sequence = function(start, stop, step) {
   start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
@@ -3379,7 +3400,7 @@ var sequence = function(start, stop, step) {
   }
 
   return range;
-}
+};
 
 var e10 = Math.sqrt(50);
 var e5 = Math.sqrt(10);
@@ -3392,7 +3413,7 @@ var ticks = function(start, stop, count) {
     Math.floor(stop / step) * step + step / 2, // inclusive
     step
   );
-}
+};
 
 function tickStep(start, stop, count) {
   var step0 = Math.abs(stop - start) / Math.max(0, count),
@@ -3406,7 +3427,7 @@ function tickStep(start, stop, count) {
 
 var sturges = function(values) {
   return Math.ceil(Math.log(values.length) / Math.LN2) + 1;
-}
+};
 
 var histogram = function() {
   var value = identity$1,
@@ -3470,7 +3491,7 @@ var histogram = function() {
   };
 
   return histogram;
-}
+};
 
 var threshold = function(array, p, f) {
   if (f == null) f = number;
@@ -3483,16 +3504,16 @@ var threshold = function(array, p, f) {
       a = +f(array[i], i, array),
       b = +f(array[i + 1], i + 1, array);
   return a + (b - a) * (h - i);
-}
+};
 
 var freedmanDiaconis = function(values, min, max) {
   values = map.call(values, number).sort(ascending$1);
   return Math.ceil((max - min) / (2 * (threshold(values, 0.75) - threshold(values, 0.25)) * Math.pow(values.length, -1 / 3)));
-}
+};
 
 var scott = function(values, min, max) {
   return Math.ceil((max - min) / (3.5 * deviation(values) * Math.pow(values.length, -1 / 3)));
-}
+};
 
 var max = function(array, f) {
   var i = -1,
@@ -3511,7 +3532,7 @@ var max = function(array, f) {
   }
 
   return a;
-}
+};
 
 var mean = function(array, f) {
   var s = 0,
@@ -3529,7 +3550,7 @@ var mean = function(array, f) {
   }
 
   if (j) return s / j;
-}
+};
 
 var median = function(array, f) {
   var numbers = [],
@@ -3546,7 +3567,7 @@ var median = function(array, f) {
   }
 
   return threshold(numbers.sort(ascending$1), 0.5);
-}
+};
 
 var merge = function(arrays) {
   var n = arrays.length,
@@ -3568,7 +3589,7 @@ var merge = function(arrays) {
   }
 
   return merged;
-}
+};
 
 var min = function(array, f) {
   var i = -1,
@@ -3587,19 +3608,13 @@ var min = function(array, f) {
   }
 
   return a;
-}
-
-var pairs = function(array) {
-  var i = 0, n = array.length - 1, p = array[0], pairs = new Array(n < 0 ? 0 : n);
-  while (i < n) pairs[i] = [p, p = array[++i]];
-  return pairs;
-}
+};
 
 var permute = function(array, indexes) {
   var i = indexes.length, permutes = new Array(i);
   while (i--) permutes[i] = array[indexes[i]];
   return permutes;
-}
+};
 
 var scan = function(array, compare) {
   if (!(n = array.length)) return;
@@ -3614,7 +3629,7 @@ var scan = function(array, compare) {
   while (++i < n) if (compare(xi = array[i], xj) < 0 || compare(xj, xj) !== 0) xj = xi, j = i;
 
   if (compare(xj, xj) === 0) return j;
-}
+};
 
 var shuffle = function(array, i0, i1) {
   var m = (i1 == null ? array.length : i1) - (i0 = i0 == null ? 0 : +i0),
@@ -3629,7 +3644,7 @@ var shuffle = function(array, i0, i1) {
   }
 
   return array;
-}
+};
 
 var sum = function(array, f) {
   var s = 0,
@@ -3646,7 +3661,7 @@ var sum = function(array, f) {
   }
 
   return s;
-}
+};
 
 var transpose = function(matrix) {
   if (!(n = matrix.length)) return [];
@@ -3656,7 +3671,7 @@ var transpose = function(matrix) {
     }
   }
   return transpose;
-}
+};
 
 function length(d) {
   return d.length;
@@ -3664,7 +3679,7 @@ function length(d) {
 
 var zip = function() {
   return transpose(arguments);
-}
+};
 
 var prefix = "$";
 
@@ -3794,7 +3809,7 @@ var nest = function() {
     sortValues: function(order) { sortValues = order; return nest; },
     rollup: function(f) { rollup = f; return nest; }
   };
-}
+};
 
 function createObject() {
   return {};
@@ -3852,19 +3867,19 @@ var keys = function(map) {
   var keys = [];
   for (var key in map) keys.push(key);
   return keys;
-}
+};
 
 var values = function(map) {
   var values = [];
   for (var key in map) values.push(map[key]);
   return values;
-}
+};
 
 var entries = function(map) {
   var entries = [];
   for (var key in map) entries.push({key: key, value: map[key]});
   return entries;
-}
+};
 
 // Computes the decimal coefficient and exponent of the specified number x with
 // significant digits p, where x is positive and p is in [1, 21] or undefined.
@@ -3879,11 +3894,11 @@ var formatDecimal = function(x, p) {
     coefficient.length > 1 ? coefficient[0] + coefficient.slice(2) : coefficient,
     +x.slice(i + 1)
   ];
-}
+};
 
 var exponent$1 = function(x) {
   return x = formatDecimal(Math.abs(x)), x ? x[1] : NaN;
-}
+};
 
 var formatGroup = function(grouping, thousands) {
   return function(value, width) {
@@ -3902,7 +3917,15 @@ var formatGroup = function(grouping, thousands) {
 
     return t.reverse().join(thousands);
   };
-}
+};
+
+var formatNumerals = function(numerals) {
+  return function(value) {
+    return value.replace(/[0-9]/g, function(i) {
+      return numerals[+i];
+    });
+  };
+};
 
 var formatDefault = function(x, p) {
   x = x.toPrecision(p);
@@ -3917,7 +3940,7 @@ var formatDefault = function(x, p) {
   }
 
   return i0 > 0 ? x.slice(0, i0) + x.slice(i1 + 1) : x;
-}
+};
 
 var prefixExponent;
 
@@ -3932,7 +3955,7 @@ var formatPrefixAuto = function(x, p) {
       : i > n ? coefficient + new Array(i - n + 1).join("0")
       : i > 0 ? coefficient.slice(0, i) + "." + coefficient.slice(i)
       : "0." + new Array(1 - i).join("0") + formatDecimal(x, Math.max(0, p + i - 1))[0]; // less than 1y!
-}
+};
 
 var formatRounded = function(x, p) {
   var d = formatDecimal(x, p);
@@ -3942,7 +3965,7 @@ var formatRounded = function(x, p) {
   return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient
       : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1)
       : coefficient + new Array(exponent - coefficient.length + 2).join("0");
-}
+};
 
 var formatTypes = {
   "": formatDefault,
@@ -3964,9 +3987,11 @@ var formatTypes = {
 // [[fill]align][sign][symbol][0][width][,][.precision][type]
 var re = /^(?:(.)?([<>=^]))?([+\-\( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?([a-z%])?$/i;
 
-var formatSpecifier = function(specifier) {
+function formatSpecifier(specifier) {
   return new FormatSpecifier(specifier);
 }
+
+formatSpecifier.prototype = FormatSpecifier.prototype; // instanceof
 
 function FormatSpecifier(specifier) {
   if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
@@ -4014,16 +4039,18 @@ FormatSpecifier.prototype.toString = function() {
       + this.type;
 };
 
-var prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
-
-function identity$2(x) {
+var identity$2 = function(x) {
   return x;
-}
+};
+
+var prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
 
 var formatLocale = function(locale) {
   var group = locale.grouping && locale.thousands ? formatGroup(locale.grouping, locale.thousands) : identity$2,
       currency = locale.currency,
-      decimal = locale.decimal;
+      decimal = locale.decimal,
+      numerals = locale.numerals ? formatNumerals(locale.numerals) : identity$2,
+      percent = locale.percent || "%";
 
   function newFormat(specifier) {
     specifier = formatSpecifier(specifier);
@@ -4041,7 +4068,7 @@ var formatLocale = function(locale) {
     // Compute the prefix and suffix.
     // For SI-prefix, the suffix is lazily computed.
     var prefix = symbol === "$" ? currency[0] : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
-        suffix = symbol === "$" ? currency[1] : /[%p]/.test(type) ? "%" : "";
+        suffix = symbol === "$" ? currency[1] : /[%p]/.test(type) ? percent : "";
 
     // What format function should we use?
     // Is this an integer type?
@@ -4068,27 +4095,12 @@ var formatLocale = function(locale) {
       } else {
         value = +value;
 
-        // Convert negative to positive, and compute the prefix.
-        // Note that -0 is not less than 0, but 1 / -0 is!
-        var valueNegative = (value < 0 || 1 / value < 0) && (value *= -1, true);
-
         // Perform the initial formatting.
-        value = formatType(value, precision);
+        var valueNegative = value < 0;
+        value = formatType(Math.abs(value), precision);
 
-        // If the original value was negative, it may be rounded to zero during
-        // formatting; treat this as (positive) zero.
-        if (valueNegative) {
-          i = -1, n = value.length;
-          valueNegative = false;
-          while (++i < n) {
-            if (c = value.charCodeAt(i), (48 < c && c < 58)
-                || (type === "x" && 96 < c && c < 103)
-                || (type === "X" && 64 < c && c < 71)) {
-              valueNegative = true;
-              break;
-            }
-          }
-        }
+        // If a negative value rounds to zero during formatting, treat as positive.
+        if (valueNegative && +value === 0) valueNegative = false;
 
         // Compute the prefix and suffix.
         valuePrefix = (valueNegative ? (sign === "(" ? sign : "-") : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
@@ -4120,11 +4132,13 @@ var formatLocale = function(locale) {
 
       // Reconstruct the final output based on the desired alignment.
       switch (align) {
-        case "<": return valuePrefix + value + valueSuffix + padding;
-        case "=": return valuePrefix + padding + value + valueSuffix;
-        case "^": return padding.slice(0, length = padding.length >> 1) + valuePrefix + value + valueSuffix + padding.slice(length);
+        case "<": value = valuePrefix + value + valueSuffix + padding; break;
+        case "=": value = valuePrefix + padding + value + valueSuffix; break;
+        case "^": value = padding.slice(0, length = padding.length >> 1) + valuePrefix + value + valueSuffix + padding.slice(length); break;
+        default: value = padding + valuePrefix + value + valueSuffix; break;
       }
-      return padding + valuePrefix + value + valueSuffix;
+
+      return numerals(value);
     }
 
     format.toString = function() {
@@ -4148,7 +4162,7 @@ var formatLocale = function(locale) {
     format: newFormat,
     formatPrefix: formatPrefix
   };
-}
+};
 
 var locale$1;
 
@@ -4170,16 +4184,16 @@ function defaultLocale(definition) {
 
 var precisionFixed = function(step) {
   return Math.max(0, -exponent$1(Math.abs(step)));
-}
+};
 
 var precisionPrefix = function(step, value) {
   return Math.max(0, Math.max(-8, Math.min(8, Math.floor(exponent$1(value) / 3))) * 3 - exponent$1(Math.abs(step)));
-}
+};
 
 var precisionRound = function(step, max) {
   step = Math.abs(step), max = Math.abs(max) - step;
   return Math.max(0, exponent$1(max) - exponent$1(step)) + 1;
-}
+};
 
 var array$2 = Array.prototype;
 
@@ -4333,11 +4347,11 @@ var constant$3 = function(x) {
   return function() {
     return x;
   };
-}
+};
 
 var number$1 = function(x) {
   return +x;
-}
+};
 
 var unit = [0, 1];
 
@@ -4474,7 +4488,7 @@ var tickFormat = function(domain, count, specifier) {
     }
   }
   return exports.format(specifier);
-}
+};
 
 function linearish(scale) {
   var domain = scale.domain;
@@ -4556,7 +4570,7 @@ var nice = function(domain, interval) {
   domain[i0] = interval.floor(x0);
   domain[i1] = interval.ceil(x1);
   return domain;
-}
+};
 
 function deinterpolate(a, b) {
   return (b = Math.log(b / a))
@@ -5804,17 +5818,17 @@ function calendar(year$$1, month$$1, week, day$$1, hour$$1, minute$$1, second$$1
 
 var time = function() {
   return calendar(year, month, sunday, day, hour, minute, second, millisecond, timeFormat).domain([new Date(2000, 0, 1), new Date(2000, 0, 2)]);
-}
+};
 
 var utcTime = function() {
   return calendar(utcYear, utcMonth, utcSunday, utcDay, utcHour, utcMinute, second, millisecond, utcFormat).domain([Date.UTC(2000, 0, 1), Date.UTC(2000, 0, 2)]);
-}
+};
 
 var colors = function(s) {
   return s.match(/.{6}/g).map(function(x) {
     return "#" + x;
   });
-}
+};
 
 var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
 
@@ -5839,7 +5853,7 @@ var rainbow$1 = function(t) {
   rainbow.s = 1.5 - 1.5 * ts;
   rainbow.l = 0.8 - 0.9 * ts;
   return rainbow + "";
-}
+};
 
 function ramp(range) {
   var n = range.length;
@@ -5935,6 +5949,7 @@ exports.bisectRight = bisectRight;
 exports.bisectLeft = bisectLeft;
 exports.ascending = ascending$1;
 exports.bisector = bisector;
+exports.cross = cross;
 exports.descending = descending;
 exports.deviation = deviation;
 exports.extent = extent;

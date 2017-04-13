@@ -11,6 +11,7 @@ Builds of custom D3 4.0 bundle using ES2015 modules and [Rollup](http://rollupjs
 To build:
 
 ```
+npm instal topojson
 npm install
 npm run prepublish
 
