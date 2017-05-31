@@ -15906,6 +15906,9522 @@ var helpers = {
   thresholdLabels
 };
 
+var ascending$5 = function(a, b) {
+  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+};
+
+var bisector$2 = function(compare) {
+  if (compare.length === 1) compare = ascendingComparator$2(compare);
+  return {
+    left: function(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        var mid = lo + hi >>> 1;
+        if (compare(a[mid], x) < 0) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    },
+    right: function(a, x, lo, hi) {
+      if (lo == null) lo = 0;
+      if (hi == null) hi = a.length;
+      while (lo < hi) {
+        var mid = lo + hi >>> 1;
+        if (compare(a[mid], x) > 0) hi = mid;
+        else lo = mid + 1;
+      }
+      return lo;
+    }
+  };
+};
+
+function ascendingComparator$2(f) {
+  return function(d, x) {
+    return ascending$5(f(d), x);
+  };
+}
+
+var ascendingBisect$2 = bisector$2(ascending$5);
+var bisectRight$2 = ascendingBisect$2.right;
+
+function pair$1(a, b) {
+  return [a, b];
+}
+
+var number$6 = function(x) {
+  return x === null ? NaN : +x;
+};
+
+var extent$3 = function(values, valueof) {
+  var n = values.length,
+      i = -1,
+      value,
+      min,
+      max;
+
+  if (valueof == null) {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = values[i]) != null && value >= value) {
+        min = max = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = values[i]) != null) {
+            if (min > value) min = value;
+            if (max < value) max = value;
+          }
+        }
+      }
+    }
+  }
+
+  else {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = valueof(values[i], i, values)) != null && value >= value) {
+        min = max = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = valueof(values[i], i, values)) != null) {
+            if (min > value) min = value;
+            if (max < value) max = value;
+          }
+        }
+      }
+    }
+  }
+
+  return [min, max];
+};
+
+var array$5 = Array.prototype;
+
+var slice$6 = array$5.slice;
+var map$6 = array$5.map;
+
+var constant$13 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+var identity$12 = function(x) {
+  return x;
+};
+
+var sequence = function(start, stop, step) {
+  start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
+
+  var i = -1,
+      n = Math.max(0, Math.ceil((stop - start) / step)) | 0,
+      range = new Array(n);
+
+  while (++i < n) {
+    range[i] = start + i * step;
+  }
+
+  return range;
+};
+
+var e10$2 = Math.sqrt(50);
+var e5$2 = Math.sqrt(10);
+var e2$2 = Math.sqrt(2);
+
+var ticks$2 = function(start, stop, count) {
+  var reverse = stop < start,
+      i = -1,
+      n,
+      ticks,
+      step;
+
+  if (reverse) n = start, start = stop, stop = n;
+
+  if ((step = tickIncrement(start, stop, count)) === 0 || !isFinite(step)) return [];
+
+  if (step > 0) {
+    start = Math.ceil(start / step);
+    stop = Math.floor(stop / step);
+    ticks = new Array(n = Math.ceil(stop - start + 1));
+    while (++i < n) ticks[i] = (start + i) * step;
+  } else {
+    start = Math.floor(start * step);
+    stop = Math.ceil(stop * step);
+    ticks = new Array(n = Math.ceil(start - stop + 1));
+    while (++i < n) ticks[i] = (start - i) / step;
+  }
+
+  if (reverse) ticks.reverse();
+
+  return ticks;
+};
+
+function tickIncrement(start, stop, count) {
+  var step = (stop - start) / Math.max(0, count),
+      power = Math.floor(Math.log(step) / Math.LN10),
+      error = step / Math.pow(10, power);
+  return power >= 0
+      ? (error >= e10$2 ? 10 : error >= e5$2 ? 5 : error >= e2$2 ? 2 : 1) * Math.pow(10, power)
+      : -Math.pow(10, -power) / (error >= e10$2 ? 10 : error >= e5$2 ? 5 : error >= e2$2 ? 2 : 1);
+}
+
+function tickStep$2(start, stop, count) {
+  var step0 = Math.abs(stop - start) / Math.max(0, count),
+      step1 = Math.pow(10, Math.floor(Math.log(step0) / Math.LN10)),
+      error = step0 / step1;
+  if (error >= e10$2) step1 *= 10;
+  else if (error >= e5$2) step1 *= 5;
+  else if (error >= e2$2) step1 *= 2;
+  return stop < start ? -step1 : step1;
+}
+
+var sturges$2 = function(values) {
+  return Math.ceil(Math.log(values.length) / Math.LN2) + 1;
+};
+
+var threshold$4 = function(values, p, valueof) {
+  if (valueof == null) valueof = number$6;
+  if (!(n = values.length)) return;
+  if ((p = +p) <= 0 || n < 2) return +valueof(values[0], 0, values);
+  if (p >= 1) return +valueof(values[n - 1], n - 1, values);
+  var n,
+      i = (n - 1) * p,
+      i0 = Math.floor(i),
+      value0 = +valueof(values[i0], i0, values),
+      value1 = +valueof(values[i0 + 1], i0 + 1, values);
+  return value0 + (value1 - value0) * (i - i0);
+};
+
+var merge$2 = function(arrays) {
+  var n = arrays.length,
+      m,
+      i = -1,
+      j = 0,
+      merged,
+      array;
+
+  while (++i < n) j += arrays[i].length;
+  merged = new Array(j);
+
+  while (--n >= 0) {
+    array = arrays[n];
+    m = array.length;
+    while (--m >= 0) {
+      merged[--j] = array[m];
+    }
+  }
+
+  return merged;
+};
+
+var min$3 = function(values, valueof) {
+  var n = values.length,
+      i = -1,
+      value,
+      min;
+
+  if (valueof == null) {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = values[i]) != null && value >= value) {
+        min = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = values[i]) != null && min > value) {
+            min = value;
+          }
+        }
+      }
+    }
+  }
+
+  else {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = valueof(values[i], i, values)) != null && value >= value) {
+        min = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = valueof(values[i], i, values)) != null && min > value) {
+            min = value;
+          }
+        }
+      }
+    }
+  }
+
+  return min;
+};
+
+function length$3(d) {
+  return d.length;
+}
+
+var slice$7 = Array.prototype.slice;
+
+var identity$13 = function(x) {
+  return x;
+};
+
+var top$1 = 1;
+var right$1 = 2;
+var bottom$1 = 3;
+var left$1 = 4;
+var epsilon$4 = 1e-6;
+
+function translateX$1(x) {
+  return "translate(" + (x + 0.5) + ",0)";
+}
+
+function translateY$1(y) {
+  return "translate(0," + (y + 0.5) + ")";
+}
+
+function center$1(scale) {
+  var offset = Math.max(0, scale.bandwidth() - 1) / 2; // Adjust for 0.5px offset.
+  if (scale.round()) offset = Math.round(offset);
+  return function(d) {
+    return scale(d) + offset;
+  };
+}
+
+function entering$1() {
+  return !this.__axis;
+}
+
+var cos$2 = Math.cos;
+var sin$2 = Math.sin;
+var pi$4 = Math.PI;
+var halfPi$3 = pi$4 / 2;
+var tau$4 = pi$4 * 2;
+var max$4 = Math.max;
+
+function compareValue(compare) {
+  return function(a, b) {
+    return compare(
+      a.source.value + a.target.value,
+      b.source.value + b.target.value
+    );
+  };
+}
+
+var slice$8 = Array.prototype.slice;
+
+var constant$14 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function defaultSource(d) {
+  return d.source;
+}
+
+function defaultTarget(d) {
+  return d.target;
+}
+
+function defaultRadius(d) {
+  return d.radius;
+}
+
+function defaultStartAngle(d) {
+  return d.startAngle;
+}
+
+function defaultEndAngle(d) {
+  return d.endAngle;
+}
+
+var xhtml$2 = "http://www.w3.org/1999/xhtml";
+
+var namespaces$2 = {
+  svg: "http://www.w3.org/2000/svg",
+  xhtml: xhtml$2,
+  xlink: "http://www.w3.org/1999/xlink",
+  xml: "http://www.w3.org/XML/1998/namespace",
+  xmlns: "http://www.w3.org/2000/xmlns/"
+};
+
+var namespace$2 = function(name) {
+  var prefix = name += "", i = prefix.indexOf(":");
+  if (i >= 0 && (prefix = name.slice(0, i)) !== "xmlns") name = name.slice(i + 1);
+  return namespaces$2.hasOwnProperty(prefix) ? {space: namespaces$2[prefix], local: name} : name;
+};
+
+function creatorInherit$2(name) {
+  return function() {
+    var document = this.ownerDocument,
+        uri = this.namespaceURI;
+    return uri === xhtml$2 && document.documentElement.namespaceURI === xhtml$2
+        ? document.createElement(name)
+        : document.createElementNS(uri, name);
+  };
+}
+
+function creatorFixed$2(fullname) {
+  return function() {
+    return this.ownerDocument.createElementNS(fullname.space, fullname.local);
+  };
+}
+
+var creator$2 = function(name) {
+  var fullname = namespace$2(name);
+  return (fullname.local
+      ? creatorFixed$2
+      : creatorInherit$2)(fullname);
+};
+
+var nextId$2 = 0;
+
+var matcher$4 = function(selector) {
+  return function() {
+    return this.matches(selector);
+  };
+};
+
+if (typeof document !== "undefined") {
+  var element$4 = document.documentElement;
+  if (!element$4.matches) {
+    var vendorMatches$2 = element$4.webkitMatchesSelector
+        || element$4.msMatchesSelector
+        || element$4.mozMatchesSelector
+        || element$4.oMatchesSelector;
+    matcher$4 = function(selector) {
+      return function() {
+        return vendorMatches$2.call(this, selector);
+      };
+    };
+  }
+}
+
+var matcher$5 = matcher$4;
+
+var filterEvents$2 = {};
+
+var event$2 = null;
+
+if (typeof document !== "undefined") {
+  var element$5 = document.documentElement;
+  if (!("onmouseenter" in element$5)) {
+    filterEvents$2 = {mouseenter: "mouseover", mouseleave: "mouseout"};
+  }
+}
+
+function filterContextListener$2(listener, index, group) {
+  listener = contextListener$2(listener, index, group);
+  return function(event) {
+    var related = event.relatedTarget;
+    if (!related || (related !== this && !(related.compareDocumentPosition(this) & 8))) {
+      listener.call(this, event);
+    }
+  };
+}
+
+function contextListener$2(listener, index, group) {
+  return function(event1) {
+    var event0 = event$2; // Events can be reentrant (e.g., focus).
+    event$2 = event1;
+    try {
+      listener.call(this, this.__data__, index, group);
+    } finally {
+      event$2 = event0;
+    }
+  };
+}
+
+function parseTypenames$4(typenames) {
+  return typenames.trim().split(/^|\s+/).map(function(t) {
+    var name = "", i = t.indexOf(".");
+    if (i >= 0) name = t.slice(i + 1), t = t.slice(0, i);
+    return {type: t, name: name};
+  });
+}
+
+function onRemove$2(typename) {
+  return function() {
+    var on = this.__on;
+    if (!on) return;
+    for (var j = 0, i = -1, m = on.length, o; j < m; ++j) {
+      if (o = on[j], (!typename.type || o.type === typename.type) && o.name === typename.name) {
+        this.removeEventListener(o.type, o.listener, o.capture);
+      } else {
+        on[++i] = o;
+      }
+    }
+    if (++i) on.length = i;
+    else delete this.__on;
+  };
+}
+
+function onAdd$2(typename, value, capture) {
+  var wrap = filterEvents$2.hasOwnProperty(typename.type) ? filterContextListener$2 : contextListener$2;
+  return function(d, i, group) {
+    var on = this.__on, o, listener = wrap(value, i, group);
+    if (on) for (var j = 0, m = on.length; j < m; ++j) {
+      if ((o = on[j]).type === typename.type && o.name === typename.name) {
+        this.removeEventListener(o.type, o.listener, o.capture);
+        this.addEventListener(o.type, o.listener = listener, o.capture = capture);
+        o.value = value;
+        return;
+      }
+    }
+    this.addEventListener(typename.type, listener, capture);
+    o = {type: typename.type, name: typename.name, value: value, listener: listener, capture: capture};
+    if (!on) this.__on = [o];
+    else on.push(o);
+  };
+}
+
+var selection_on$2 = function(typename, value, capture) {
+  var typenames = parseTypenames$4(typename + ""), i, n = typenames.length, t;
+
+  if (arguments.length < 2) {
+    var on = this.node().__on;
+    if (on) for (var j = 0, m = on.length, o; j < m; ++j) {
+      for (i = 0, o = on[j]; i < n; ++i) {
+        if ((t = typenames[i]).type === o.type && t.name === o.name) {
+          return o.value;
+        }
+      }
+    }
+    return;
+  }
+
+  on = value ? onAdd$2 : onRemove$2;
+  if (capture == null) capture = false;
+  for (i = 0; i < n; ++i) this.each(on(typenames[i], value, capture));
+  return this;
+};
+
+function customEvent$2(event1, listener, that, args) {
+  var event0 = event$2;
+  event1.sourceEvent = event$2;
+  event$2 = event1;
+  try {
+    return listener.apply(that, args);
+  } finally {
+    event$2 = event0;
+  }
+}
+
+var sourceEvent$2 = function() {
+  var current = event$2, source;
+  while (source = current.sourceEvent) current = source;
+  return current;
+};
+
+var point$8 = function(node, event) {
+  var svg = node.ownerSVGElement || node;
+
+  if (svg.createSVGPoint) {
+    var point = svg.createSVGPoint();
+    point.x = event.clientX, point.y = event.clientY;
+    point = point.matrixTransform(node.getScreenCTM().inverse());
+    return [point.x, point.y];
+  }
+
+  var rect = node.getBoundingClientRect();
+  return [event.clientX - rect.left - node.clientLeft, event.clientY - rect.top - node.clientTop];
+};
+
+var mouse$2 = function(node) {
+  var event = sourceEvent$2();
+  if (event.changedTouches) event = event.changedTouches[0];
+  return point$8(node, event);
+};
+
+function none$4() {}
+
+var selector$2 = function(selector) {
+  return selector == null ? none$4 : function() {
+    return this.querySelector(selector);
+  };
+};
+
+var selection_select$2 = function(select) {
+  if (typeof select !== "function") select = selector$2(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = new Array(n), node, subnode, i = 0; i < n; ++i) {
+      if ((node = group[i]) && (subnode = select.call(node, node.__data__, i, group))) {
+        if ("__data__" in node) subnode.__data__ = node.__data__;
+        subgroup[i] = subnode;
+      }
+    }
+  }
+
+  return new Selection$3(subgroups, this._parents);
+};
+
+function empty$3() {
+  return [];
+}
+
+var selectorAll$2 = function(selector) {
+  return selector == null ? empty$3 : function() {
+    return this.querySelectorAll(selector);
+  };
+};
+
+var selection_selectAll$2 = function(select) {
+  if (typeof select !== "function") select = selectorAll$2(select);
+
+  for (var groups = this._groups, m = groups.length, subgroups = [], parents = [], j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        subgroups.push(select.call(node, node.__data__, i, group));
+        parents.push(node);
+      }
+    }
+  }
+
+  return new Selection$3(subgroups, parents);
+};
+
+var selection_filter$2 = function(match) {
+  if (typeof match !== "function") match = matcher$5(match);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
+      if ((node = group[i]) && match.call(node, node.__data__, i, group)) {
+        subgroup.push(node);
+      }
+    }
+  }
+
+  return new Selection$3(subgroups, this._parents);
+};
+
+var sparse$2 = function(update) {
+  return new Array(update.length);
+};
+
+var selection_enter$2 = function() {
+  return new Selection$3(this._enter || this._groups.map(sparse$2), this._parents);
+};
+
+function EnterNode$2(parent, datum) {
+  this.ownerDocument = parent.ownerDocument;
+  this.namespaceURI = parent.namespaceURI;
+  this._next = null;
+  this._parent = parent;
+  this.__data__ = datum;
+}
+
+EnterNode$2.prototype = {
+  constructor: EnterNode$2,
+  appendChild: function(child) { return this._parent.insertBefore(child, this._next); },
+  insertBefore: function(child, next) { return this._parent.insertBefore(child, next); },
+  querySelector: function(selector) { return this._parent.querySelector(selector); },
+  querySelectorAll: function(selector) { return this._parent.querySelectorAll(selector); }
+};
+
+var constant$15 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+var keyPrefix$2 = "$"; // Protect against keys like “__proto__”.
+
+function bindIndex$2(parent, group, enter, update, exit, data) {
+  var i = 0,
+      node,
+      groupLength = group.length,
+      dataLength = data.length;
+
+  // Put any non-null nodes that fit into update.
+  // Put any null nodes into enter.
+  // Put any remaining data into enter.
+  for (; i < dataLength; ++i) {
+    if (node = group[i]) {
+      node.__data__ = data[i];
+      update[i] = node;
+    } else {
+      enter[i] = new EnterNode$2(parent, data[i]);
+    }
+  }
+
+  // Put any non-null nodes that don’t fit into exit.
+  for (; i < groupLength; ++i) {
+    if (node = group[i]) {
+      exit[i] = node;
+    }
+  }
+}
+
+function bindKey$2(parent, group, enter, update, exit, data, key) {
+  var i,
+      node,
+      nodeByKeyValue = {},
+      groupLength = group.length,
+      dataLength = data.length,
+      keyValues = new Array(groupLength),
+      keyValue;
+
+  // Compute the key for each node.
+  // If multiple nodes have the same key, the duplicates are added to exit.
+  for (i = 0; i < groupLength; ++i) {
+    if (node = group[i]) {
+      keyValues[i] = keyValue = keyPrefix$2 + key.call(node, node.__data__, i, group);
+      if (keyValue in nodeByKeyValue) {
+        exit[i] = node;
+      } else {
+        nodeByKeyValue[keyValue] = node;
+      }
+    }
+  }
+
+  // Compute the key for each datum.
+  // If there a node associated with this key, join and add it to update.
+  // If there is not (or the key is a duplicate), add it to enter.
+  for (i = 0; i < dataLength; ++i) {
+    keyValue = keyPrefix$2 + key.call(parent, data[i], i, data);
+    if (node = nodeByKeyValue[keyValue]) {
+      update[i] = node;
+      node.__data__ = data[i];
+      nodeByKeyValue[keyValue] = null;
+    } else {
+      enter[i] = new EnterNode$2(parent, data[i]);
+    }
+  }
+
+  // Add any remaining nodes that were not bound to data to exit.
+  for (i = 0; i < groupLength; ++i) {
+    if ((node = group[i]) && (nodeByKeyValue[keyValues[i]] === node)) {
+      exit[i] = node;
+    }
+  }
+}
+
+var selection_data$2 = function(value, key) {
+  if (!value) {
+    data = new Array(this.size()), j = -1;
+    this.each(function(d) { data[++j] = d; });
+    return data;
+  }
+
+  var bind = key ? bindKey$2 : bindIndex$2,
+      parents = this._parents,
+      groups = this._groups;
+
+  if (typeof value !== "function") value = constant$15(value);
+
+  for (var m = groups.length, update = new Array(m), enter = new Array(m), exit = new Array(m), j = 0; j < m; ++j) {
+    var parent = parents[j],
+        group = groups[j],
+        groupLength = group.length,
+        data = value.call(parent, parent && parent.__data__, j, parents),
+        dataLength = data.length,
+        enterGroup = enter[j] = new Array(dataLength),
+        updateGroup = update[j] = new Array(dataLength),
+        exitGroup = exit[j] = new Array(groupLength);
+
+    bind(parent, group, enterGroup, updateGroup, exitGroup, data, key);
+
+    // Now connect the enter nodes to their following update node, such that
+    // appendChild can insert the materialized enter node before this node,
+    // rather than at the end of the parent node.
+    for (var i0 = 0, i1 = 0, previous, next; i0 < dataLength; ++i0) {
+      if (previous = enterGroup[i0]) {
+        if (i0 >= i1) i1 = i0 + 1;
+        while (!(next = updateGroup[i1]) && ++i1 < dataLength);
+        previous._next = next || null;
+      }
+    }
+  }
+
+  update = new Selection$3(update, parents);
+  update._enter = enter;
+  update._exit = exit;
+  return update;
+};
+
+var selection_exit$2 = function() {
+  return new Selection$3(this._exit || this._groups.map(sparse$2), this._parents);
+};
+
+var selection_merge$2 = function(selection) {
+
+  for (var groups0 = this._groups, groups1 = selection._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
+    for (var group0 = groups0[j], group1 = groups1[j], n = group0.length, merge = merges[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group0[i] || group1[i]) {
+        merge[i] = node;
+      }
+    }
+  }
+
+  for (; j < m0; ++j) {
+    merges[j] = groups0[j];
+  }
+
+  return new Selection$3(merges, this._parents);
+};
+
+var selection_order$2 = function() {
+
+  for (var groups = this._groups, j = -1, m = groups.length; ++j < m;) {
+    for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
+      if (node = group[i]) {
+        if (next && next !== node.nextSibling) next.parentNode.insertBefore(node, next);
+        next = node;
+      }
+    }
+  }
+
+  return this;
+};
+
+var selection_sort$2 = function(compare) {
+  if (!compare) compare = ascending$6;
+
+  function compareNode(a, b) {
+    return a && b ? compare(a.__data__, b.__data__) : !a - !b;
+  }
+
+  for (var groups = this._groups, m = groups.length, sortgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, sortgroup = sortgroups[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        sortgroup[i] = node;
+      }
+    }
+    sortgroup.sort(compareNode);
+  }
+
+  return new Selection$3(sortgroups, this._parents).order();
+};
+
+function ascending$6(a, b) {
+  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+}
+
+var selection_call$2 = function() {
+  var callback = arguments[0];
+  arguments[0] = this;
+  callback.apply(null, arguments);
+  return this;
+};
+
+var selection_nodes$2 = function() {
+  var nodes = new Array(this.size()), i = -1;
+  this.each(function() { nodes[++i] = this; });
+  return nodes;
+};
+
+var selection_node$2 = function() {
+
+  for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+    for (var group = groups[j], i = 0, n = group.length; i < n; ++i) {
+      var node = group[i];
+      if (node) return node;
+    }
+  }
+
+  return null;
+};
+
+var selection_size$2 = function() {
+  var size = 0;
+  this.each(function() { ++size; });
+  return size;
+};
+
+var selection_empty$2 = function() {
+  return !this.node();
+};
+
+var selection_each$2 = function(callback) {
+
+  for (var groups = this._groups, j = 0, m = groups.length; j < m; ++j) {
+    for (var group = groups[j], i = 0, n = group.length, node; i < n; ++i) {
+      if (node = group[i]) callback.call(node, node.__data__, i, group);
+    }
+  }
+
+  return this;
+};
+
+function attrRemove$3(name) {
+  return function() {
+    this.removeAttribute(name);
+  };
+}
+
+function attrRemoveNS$3(fullname) {
+  return function() {
+    this.removeAttributeNS(fullname.space, fullname.local);
+  };
+}
+
+function attrConstant$3(name, value) {
+  return function() {
+    this.setAttribute(name, value);
+  };
+}
+
+function attrConstantNS$3(fullname, value) {
+  return function() {
+    this.setAttributeNS(fullname.space, fullname.local, value);
+  };
+}
+
+function attrFunction$3(name, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.removeAttribute(name);
+    else this.setAttribute(name, v);
+  };
+}
+
+function attrFunctionNS$3(fullname, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.removeAttributeNS(fullname.space, fullname.local);
+    else this.setAttributeNS(fullname.space, fullname.local, v);
+  };
+}
+
+var selection_attr$2 = function(name, value) {
+  var fullname = namespace$2(name);
+
+  if (arguments.length < 2) {
+    var node = this.node();
+    return fullname.local
+        ? node.getAttributeNS(fullname.space, fullname.local)
+        : node.getAttribute(fullname);
+  }
+
+  return this.each((value == null
+      ? (fullname.local ? attrRemoveNS$3 : attrRemove$3) : (typeof value === "function"
+      ? (fullname.local ? attrFunctionNS$3 : attrFunction$3)
+      : (fullname.local ? attrConstantNS$3 : attrConstant$3)))(fullname, value));
+};
+
+var defaultView$1 = function(node) {
+  return (node.ownerDocument && node.ownerDocument.defaultView) // node is a Node
+      || (node.document && node) // node is a Window
+      || node.defaultView; // node is a Document
+};
+
+function styleRemove$3(name) {
+  return function() {
+    this.style.removeProperty(name);
+  };
+}
+
+function styleConstant$3(name, value, priority) {
+  return function() {
+    this.style.setProperty(name, value, priority);
+  };
+}
+
+function styleFunction$3(name, value, priority) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) this.style.removeProperty(name);
+    else this.style.setProperty(name, v, priority);
+  };
+}
+
+var selection_style$2 = function(name, value, priority) {
+  return arguments.length > 1
+      ? this.each((value == null
+            ? styleRemove$3 : typeof value === "function"
+            ? styleFunction$3
+            : styleConstant$3)(name, value, priority == null ? "" : priority))
+      : styleValue(this.node(), name);
+};
+
+function styleValue(node, name) {
+  return node.style.getPropertyValue(name)
+      || defaultView$1(node).getComputedStyle(node, null).getPropertyValue(name);
+}
+
+function propertyRemove$2(name) {
+  return function() {
+    delete this[name];
+  };
+}
+
+function propertyConstant$2(name, value) {
+  return function() {
+    this[name] = value;
+  };
+}
+
+function propertyFunction$2(name, value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    if (v == null) delete this[name];
+    else this[name] = v;
+  };
+}
+
+var selection_property$2 = function(name, value) {
+  return arguments.length > 1
+      ? this.each((value == null
+          ? propertyRemove$2 : typeof value === "function"
+          ? propertyFunction$2
+          : propertyConstant$2)(name, value))
+      : this.node()[name];
+};
+
+function classArray$2(string) {
+  return string.trim().split(/^|\s+/);
+}
+
+function classList$2(node) {
+  return node.classList || new ClassList$2(node);
+}
+
+function ClassList$2(node) {
+  this._node = node;
+  this._names = classArray$2(node.getAttribute("class") || "");
+}
+
+ClassList$2.prototype = {
+  add: function(name) {
+    var i = this._names.indexOf(name);
+    if (i < 0) {
+      this._names.push(name);
+      this._node.setAttribute("class", this._names.join(" "));
+    }
+  },
+  remove: function(name) {
+    var i = this._names.indexOf(name);
+    if (i >= 0) {
+      this._names.splice(i, 1);
+      this._node.setAttribute("class", this._names.join(" "));
+    }
+  },
+  contains: function(name) {
+    return this._names.indexOf(name) >= 0;
+  }
+};
+
+function classedAdd$2(node, names) {
+  var list = classList$2(node), i = -1, n = names.length;
+  while (++i < n) list.add(names[i]);
+}
+
+function classedRemove$2(node, names) {
+  var list = classList$2(node), i = -1, n = names.length;
+  while (++i < n) list.remove(names[i]);
+}
+
+function classedTrue$2(names) {
+  return function() {
+    classedAdd$2(this, names);
+  };
+}
+
+function classedFalse$2(names) {
+  return function() {
+    classedRemove$2(this, names);
+  };
+}
+
+function classedFunction$2(names, value) {
+  return function() {
+    (value.apply(this, arguments) ? classedAdd$2 : classedRemove$2)(this, names);
+  };
+}
+
+var selection_classed$2 = function(name, value) {
+  var names = classArray$2(name + "");
+
+  if (arguments.length < 2) {
+    var list = classList$2(this.node()), i = -1, n = names.length;
+    while (++i < n) if (!list.contains(names[i])) return false;
+    return true;
+  }
+
+  return this.each((typeof value === "function"
+      ? classedFunction$2 : value
+      ? classedTrue$2
+      : classedFalse$2)(names, value));
+};
+
+function textRemove$2() {
+  this.textContent = "";
+}
+
+function textConstant$3(value) {
+  return function() {
+    this.textContent = value;
+  };
+}
+
+function textFunction$3(value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    this.textContent = v == null ? "" : v;
+  };
+}
+
+var selection_text$2 = function(value) {
+  return arguments.length
+      ? this.each(value == null
+          ? textRemove$2 : (typeof value === "function"
+          ? textFunction$3
+          : textConstant$3)(value))
+      : this.node().textContent;
+};
+
+function htmlRemove$2() {
+  this.innerHTML = "";
+}
+
+function htmlConstant$2(value) {
+  return function() {
+    this.innerHTML = value;
+  };
+}
+
+function htmlFunction$2(value) {
+  return function() {
+    var v = value.apply(this, arguments);
+    this.innerHTML = v == null ? "" : v;
+  };
+}
+
+var selection_html$2 = function(value) {
+  return arguments.length
+      ? this.each(value == null
+          ? htmlRemove$2 : (typeof value === "function"
+          ? htmlFunction$2
+          : htmlConstant$2)(value))
+      : this.node().innerHTML;
+};
+
+function raise$4() {
+  if (this.nextSibling) this.parentNode.appendChild(this);
+}
+
+var selection_raise$2 = function() {
+  return this.each(raise$4);
+};
+
+function lower$2() {
+  if (this.previousSibling) this.parentNode.insertBefore(this, this.parentNode.firstChild);
+}
+
+var selection_lower$2 = function() {
+  return this.each(lower$2);
+};
+
+var selection_append$2 = function(name) {
+  var create = typeof name === "function" ? name : creator$2(name);
+  return this.select(function() {
+    return this.appendChild(create.apply(this, arguments));
+  });
+};
+
+function constantNull$2() {
+  return null;
+}
+
+var selection_insert$2 = function(name, before) {
+  var create = typeof name === "function" ? name : creator$2(name),
+      select = before == null ? constantNull$2 : typeof before === "function" ? before : selector$2(before);
+  return this.select(function() {
+    return this.insertBefore(create.apply(this, arguments), select.apply(this, arguments) || null);
+  });
+};
+
+function remove$2() {
+  var parent = this.parentNode;
+  if (parent) parent.removeChild(this);
+}
+
+var selection_remove$2 = function() {
+  return this.each(remove$2);
+};
+
+var selection_datum$2 = function(value) {
+  return arguments.length
+      ? this.property("__data__", value)
+      : this.node().__data__;
+};
+
+function dispatchEvent$2(node, type, params) {
+  var window = defaultView$1(node),
+      event = window.CustomEvent;
+
+  if (typeof event === "function") {
+    event = new event(type, params);
+  } else {
+    event = window.document.createEvent("Event");
+    if (params) event.initEvent(type, params.bubbles, params.cancelable), event.detail = params.detail;
+    else event.initEvent(type, false, false);
+  }
+
+  node.dispatchEvent(event);
+}
+
+function dispatchConstant$2(type, params) {
+  return function() {
+    return dispatchEvent$2(this, type, params);
+  };
+}
+
+function dispatchFunction$2(type, params) {
+  return function() {
+    return dispatchEvent$2(this, type, params.apply(this, arguments));
+  };
+}
+
+var selection_dispatch$2 = function(type, params) {
+  return this.each((typeof params === "function"
+      ? dispatchFunction$2
+      : dispatchConstant$2)(type, params));
+};
+
+var root$3 = [null];
+
+function Selection$3(groups, parents) {
+  this._groups = groups;
+  this._parents = parents;
+}
+
+function selection$4() {
+  return new Selection$3([[document.documentElement]], root$3);
+}
+
+Selection$3.prototype = selection$4.prototype = {
+  constructor: Selection$3,
+  select: selection_select$2,
+  selectAll: selection_selectAll$2,
+  filter: selection_filter$2,
+  data: selection_data$2,
+  enter: selection_enter$2,
+  exit: selection_exit$2,
+  merge: selection_merge$2,
+  order: selection_order$2,
+  sort: selection_sort$2,
+  call: selection_call$2,
+  nodes: selection_nodes$2,
+  node: selection_node$2,
+  size: selection_size$2,
+  empty: selection_empty$2,
+  each: selection_each$2,
+  attr: selection_attr$2,
+  style: selection_style$2,
+  property: selection_property$2,
+  classed: selection_classed$2,
+  text: selection_text$2,
+  html: selection_html$2,
+  raise: selection_raise$2,
+  lower: selection_lower$2,
+  append: selection_append$2,
+  insert: selection_insert$2,
+  remove: selection_remove$2,
+  datum: selection_datum$2,
+  on: selection_on$2,
+  dispatch: selection_dispatch$2
+};
+
+var select$2 = function(selector) {
+  return typeof selector === "string"
+      ? new Selection$3([[document.querySelector(selector)]], [document.documentElement])
+      : new Selection$3([[selector]], root$3);
+};
+
+var touch$2 = function(node, touches, identifier) {
+  if (arguments.length < 3) identifier = touches, touches = sourceEvent$2().changedTouches;
+
+  for (var i = 0, n = touches ? touches.length : 0, touch; i < n; ++i) {
+    if ((touch = touches[i]).identifier === identifier) {
+      return point$8(node, touch);
+    }
+  }
+
+  return null;
+};
+
+function nopropagation$3() {
+  event$2.stopImmediatePropagation();
+}
+
+var noevent$3 = function() {
+  event$2.preventDefault();
+  event$2.stopImmediatePropagation();
+};
+
+var dragDisable$1 = function(view) {
+  var root = view.document.documentElement,
+      selection$$1 = select$2(view).on("dragstart.drag", noevent$3, true);
+  if ("onselectstart" in root) {
+    selection$$1.on("selectstart.drag", noevent$3, true);
+  } else {
+    root.__noselect = root.style.MozUserSelect;
+    root.style.MozUserSelect = "none";
+  }
+};
+
+function yesdrag$1(view, noclick) {
+  var root = view.document.documentElement,
+      selection$$1 = select$2(view).on("dragstart.drag", null);
+  if (noclick) {
+    selection$$1.on("click.drag", noevent$3, true);
+    setTimeout(function() { selection$$1.on("click.drag", null); }, 0);
+  }
+  if ("onselectstart" in root) {
+    selection$$1.on("selectstart.drag", null);
+  } else {
+    root.style.MozUserSelect = root.__noselect;
+    delete root.__noselect;
+  }
+}
+
+var constant$16 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function DragEvent$1(target, type, subject, id, active, x, y, dx, dy, dispatch) {
+  this.target = target;
+  this.type = type;
+  this.subject = subject;
+  this.identifier = id;
+  this.active = active;
+  this.x = x;
+  this.y = y;
+  this.dx = dx;
+  this.dy = dy;
+  this._ = dispatch;
+}
+
+DragEvent$1.prototype.on = function() {
+  var value = this._.on.apply(this._, arguments);
+  return value === this._ ? this : value;
+};
+
+// Ignore right-click, since that should open the context menu.
+function defaultFilter$3() {
+  return !event$2.button;
+}
+
+function defaultContainer$1() {
+  return this.parentNode;
+}
+
+function defaultSubject$1(d) {
+  return d == null ? {x: event$2.x, y: event$2.y} : d;
+}
+
+var constant$17 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+var jiggle = function() {
+  return (Math.random() - 0.5) * 1e-6;
+};
+
+var tree_add = function(d) {
+  var x = +this._x.call(null, d),
+      y = +this._y.call(null, d);
+  return add$1(this.cover(x, y), x, y, d);
+};
+
+function add$1(tree, x, y, d) {
+  if (isNaN(x) || isNaN(y)) return tree; // ignore invalid points
+
+  var parent,
+      node = tree._root,
+      leaf = {data: d},
+      x0 = tree._x0,
+      y0 = tree._y0,
+      x1 = tree._x1,
+      y1 = tree._y1,
+      xm,
+      ym,
+      xp,
+      yp,
+      right,
+      bottom,
+      i,
+      j;
+
+  // If the tree is empty, initialize the root as a leaf.
+  if (!node) return tree._root = leaf, tree;
+
+  // Find the existing leaf for the new point, or add it.
+  while (node.length) {
+    if (right = x >= (xm = (x0 + x1) / 2)) x0 = xm; else x1 = xm;
+    if (bottom = y >= (ym = (y0 + y1) / 2)) y0 = ym; else y1 = ym;
+    if (parent = node, !(node = node[i = bottom << 1 | right])) return parent[i] = leaf, tree;
+  }
+
+  // Is the new point is exactly coincident with the existing point?
+  xp = +tree._x.call(null, node.data);
+  yp = +tree._y.call(null, node.data);
+  if (x === xp && y === yp) return leaf.next = node, parent ? parent[i] = leaf : tree._root = leaf, tree;
+
+  // Otherwise, split the leaf node until the old and new point are separated.
+  do {
+    parent = parent ? parent[i] = new Array(4) : tree._root = new Array(4);
+    if (right = x >= (xm = (x0 + x1) / 2)) x0 = xm; else x1 = xm;
+    if (bottom = y >= (ym = (y0 + y1) / 2)) y0 = ym; else y1 = ym;
+  } while ((i = bottom << 1 | right) === (j = (yp >= ym) << 1 | (xp >= xm)));
+  return parent[j] = node, parent[i] = leaf, tree;
+}
+
+function addAll(data) {
+  var d, i, n = data.length,
+      x,
+      y,
+      xz = new Array(n),
+      yz = new Array(n),
+      x0 = Infinity,
+      y0 = Infinity,
+      x1 = -Infinity,
+      y1 = -Infinity;
+
+  // Compute the points and their extent.
+  for (i = 0; i < n; ++i) {
+    if (isNaN(x = +this._x.call(null, d = data[i])) || isNaN(y = +this._y.call(null, d))) continue;
+    xz[i] = x;
+    yz[i] = y;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+
+  // If there were no (valid) points, inherit the existing extent.
+  if (x1 < x0) x0 = this._x0, x1 = this._x1;
+  if (y1 < y0) y0 = this._y0, y1 = this._y1;
+
+  // Expand the tree to cover the new points.
+  this.cover(x0, y0).cover(x1, y1);
+
+  // Add the new points.
+  for (i = 0; i < n; ++i) {
+    add$1(this, xz[i], yz[i], data[i]);
+  }
+
+  return this;
+}
+
+var tree_cover = function(x, y) {
+  if (isNaN(x = +x) || isNaN(y = +y)) return this; // ignore invalid points
+
+  var x0 = this._x0,
+      y0 = this._y0,
+      x1 = this._x1,
+      y1 = this._y1;
+
+  // If the quadtree has no extent, initialize them.
+  // Integer extent are necessary so that if we later double the extent,
+  // the existing quadrant boundaries don’t change due to floating point error!
+  if (isNaN(x0)) {
+    x1 = (x0 = Math.floor(x)) + 1;
+    y1 = (y0 = Math.floor(y)) + 1;
+  }
+
+  // Otherwise, double repeatedly to cover.
+  else if (x0 > x || x > x1 || y0 > y || y > y1) {
+    var z = x1 - x0,
+        node = this._root,
+        parent,
+        i;
+
+    switch (i = (y < (y0 + y1) / 2) << 1 | (x < (x0 + x1) / 2)) {
+      case 0: {
+        do parent = new Array(4), parent[i] = node, node = parent;
+        while (z *= 2, x1 = x0 + z, y1 = y0 + z, x > x1 || y > y1);
+        break;
+      }
+      case 1: {
+        do parent = new Array(4), parent[i] = node, node = parent;
+        while (z *= 2, x0 = x1 - z, y1 = y0 + z, x0 > x || y > y1);
+        break;
+      }
+      case 2: {
+        do parent = new Array(4), parent[i] = node, node = parent;
+        while (z *= 2, x1 = x0 + z, y0 = y1 - z, x > x1 || y0 > y);
+        break;
+      }
+      case 3: {
+        do parent = new Array(4), parent[i] = node, node = parent;
+        while (z *= 2, x0 = x1 - z, y0 = y1 - z, x0 > x || y0 > y);
+        break;
+      }
+    }
+
+    if (this._root && this._root.length) this._root = node;
+  }
+
+  // If the quadtree covers the point already, just return.
+  else return this;
+
+  this._x0 = x0;
+  this._y0 = y0;
+  this._x1 = x1;
+  this._y1 = y1;
+  return this;
+};
+
+var tree_data = function() {
+  var data = [];
+  this.visit(function(node) {
+    if (!node.length) do data.push(node.data); while (node = node.next)
+  });
+  return data;
+};
+
+var tree_extent = function(_) {
+  return arguments.length
+      ? this.cover(+_[0][0], +_[0][1]).cover(+_[1][0], +_[1][1])
+      : isNaN(this._x0) ? undefined : [[this._x0, this._y0], [this._x1, this._y1]];
+};
+
+var Quad = function(node, x0, y0, x1, y1) {
+  this.node = node;
+  this.x0 = x0;
+  this.y0 = y0;
+  this.x1 = x1;
+  this.y1 = y1;
+};
+
+var tree_find = function(x, y, radius) {
+  var data,
+      x0 = this._x0,
+      y0 = this._y0,
+      x1,
+      y1,
+      x2,
+      y2,
+      x3 = this._x1,
+      y3 = this._y1,
+      quads = [],
+      node = this._root,
+      q,
+      i;
+
+  if (node) quads.push(new Quad(node, x0, y0, x3, y3));
+  if (radius == null) radius = Infinity;
+  else {
+    x0 = x - radius, y0 = y - radius;
+    x3 = x + radius, y3 = y + radius;
+    radius *= radius;
+  }
+
+  while (q = quads.pop()) {
+
+    // Stop searching if this quadrant can’t contain a closer node.
+    if (!(node = q.node)
+        || (x1 = q.x0) > x3
+        || (y1 = q.y0) > y3
+        || (x2 = q.x1) < x0
+        || (y2 = q.y1) < y0) continue;
+
+    // Bisect the current quadrant.
+    if (node.length) {
+      var xm = (x1 + x2) / 2,
+          ym = (y1 + y2) / 2;
+
+      quads.push(
+        new Quad(node[3], xm, ym, x2, y2),
+        new Quad(node[2], x1, ym, xm, y2),
+        new Quad(node[1], xm, y1, x2, ym),
+        new Quad(node[0], x1, y1, xm, ym)
+      );
+
+      // Visit the closest quadrant first.
+      if (i = (y >= ym) << 1 | (x >= xm)) {
+        q = quads[quads.length - 1];
+        quads[quads.length - 1] = quads[quads.length - 1 - i];
+        quads[quads.length - 1 - i] = q;
+      }
+    }
+
+    // Visit this point. (Visiting coincident points isn’t necessary!)
+    else {
+      var dx = x - +this._x.call(null, node.data),
+          dy = y - +this._y.call(null, node.data),
+          d2 = dx * dx + dy * dy;
+      if (d2 < radius) {
+        var d = Math.sqrt(radius = d2);
+        x0 = x - d, y0 = y - d;
+        x3 = x + d, y3 = y + d;
+        data = node.data;
+      }
+    }
+  }
+
+  return data;
+};
+
+var tree_remove = function(d) {
+  if (isNaN(x = +this._x.call(null, d)) || isNaN(y = +this._y.call(null, d))) return this; // ignore invalid points
+
+  var parent,
+      node = this._root,
+      retainer,
+      previous,
+      next,
+      x0 = this._x0,
+      y0 = this._y0,
+      x1 = this._x1,
+      y1 = this._y1,
+      x,
+      y,
+      xm,
+      ym,
+      right,
+      bottom,
+      i,
+      j;
+
+  // If the tree is empty, initialize the root as a leaf.
+  if (!node) return this;
+
+  // Find the leaf node for the point.
+  // While descending, also retain the deepest parent with a non-removed sibling.
+  if (node.length) while (true) {
+    if (right = x >= (xm = (x0 + x1) / 2)) x0 = xm; else x1 = xm;
+    if (bottom = y >= (ym = (y0 + y1) / 2)) y0 = ym; else y1 = ym;
+    if (!(parent = node, node = node[i = bottom << 1 | right])) return this;
+    if (!node.length) break;
+    if (parent[(i + 1) & 3] || parent[(i + 2) & 3] || parent[(i + 3) & 3]) retainer = parent, j = i;
+  }
+
+  // Find the point to remove.
+  while (node.data !== d) if (!(previous = node, node = node.next)) return this;
+  if (next = node.next) delete node.next;
+
+  // If there are multiple coincident points, remove just the point.
+  if (previous) return (next ? previous.next = next : delete previous.next), this;
+
+  // If this is the root point, remove it.
+  if (!parent) return this._root = next, this;
+
+  // Remove this leaf.
+  next ? parent[i] = next : delete parent[i];
+
+  // If the parent now contains exactly one leaf, collapse superfluous parents.
+  if ((node = parent[0] || parent[1] || parent[2] || parent[3])
+      && node === (parent[3] || parent[2] || parent[1] || parent[0])
+      && !node.length) {
+    if (retainer) retainer[j] = node;
+    else this._root = node;
+  }
+
+  return this;
+};
+
+function removeAll(data) {
+  for (var i = 0, n = data.length; i < n; ++i) this.remove(data[i]);
+  return this;
+}
+
+var tree_root = function() {
+  return this._root;
+};
+
+var tree_size = function() {
+  var size = 0;
+  this.visit(function(node) {
+    if (!node.length) do ++size; while (node = node.next)
+  });
+  return size;
+};
+
+var tree_visit = function(callback) {
+  var quads = [], q, node = this._root, child, x0, y0, x1, y1;
+  if (node) quads.push(new Quad(node, this._x0, this._y0, this._x1, this._y1));
+  while (q = quads.pop()) {
+    if (!callback(node = q.node, x0 = q.x0, y0 = q.y0, x1 = q.x1, y1 = q.y1) && node.length) {
+      var xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+      if (child = node[3]) quads.push(new Quad(child, xm, ym, x1, y1));
+      if (child = node[2]) quads.push(new Quad(child, x0, ym, xm, y1));
+      if (child = node[1]) quads.push(new Quad(child, xm, y0, x1, ym));
+      if (child = node[0]) quads.push(new Quad(child, x0, y0, xm, ym));
+    }
+  }
+  return this;
+};
+
+var tree_visitAfter = function(callback) {
+  var quads = [], next = [], q;
+  if (this._root) quads.push(new Quad(this._root, this._x0, this._y0, this._x1, this._y1));
+  while (q = quads.pop()) {
+    var node = q.node;
+    if (node.length) {
+      var child, x0 = q.x0, y0 = q.y0, x1 = q.x1, y1 = q.y1, xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+      if (child = node[0]) quads.push(new Quad(child, x0, y0, xm, ym));
+      if (child = node[1]) quads.push(new Quad(child, xm, y0, x1, ym));
+      if (child = node[2]) quads.push(new Quad(child, x0, ym, xm, y1));
+      if (child = node[3]) quads.push(new Quad(child, xm, ym, x1, y1));
+    }
+    next.push(q);
+  }
+  while (q = next.pop()) {
+    callback(q.node, q.x0, q.y0, q.x1, q.y1);
+  }
+  return this;
+};
+
+function defaultX(d) {
+  return d[0];
+}
+
+var tree_x = function(_) {
+  return arguments.length ? (this._x = _, this) : this._x;
+};
+
+function defaultY(d) {
+  return d[1];
+}
+
+var tree_y = function(_) {
+  return arguments.length ? (this._y = _, this) : this._y;
+};
+
+function quadtree(nodes, x, y) {
+  var tree = new Quadtree(x == null ? defaultX : x, y == null ? defaultY : y, NaN, NaN, NaN, NaN);
+  return nodes == null ? tree : tree.addAll(nodes);
+}
+
+function Quadtree(x, y, x0, y0, x1, y1) {
+  this._x = x;
+  this._y = y;
+  this._x0 = x0;
+  this._y0 = y0;
+  this._x1 = x1;
+  this._y1 = y1;
+  this._root = undefined;
+}
+
+function leaf_copy(leaf) {
+  var copy = {data: leaf.data}, next = copy;
+  while (leaf = leaf.next) next = next.next = {data: leaf.data};
+  return copy;
+}
+
+var treeProto = quadtree.prototype = Quadtree.prototype;
+
+treeProto.copy = function() {
+  var copy = new Quadtree(this._x, this._y, this._x0, this._y0, this._x1, this._y1),
+      node = this._root,
+      nodes,
+      child;
+
+  if (!node) return copy;
+
+  if (!node.length) return copy._root = leaf_copy(node), copy;
+
+  nodes = [{source: node, target: copy._root = new Array(4)}];
+  while (node = nodes.pop()) {
+    for (var i = 0; i < 4; ++i) {
+      if (child = node.source[i]) {
+        if (child.length) nodes.push({source: child, target: node.target[i] = new Array(4)});
+        else node.target[i] = leaf_copy(child);
+      }
+    }
+  }
+
+  return copy;
+};
+
+treeProto.add = tree_add;
+treeProto.addAll = addAll;
+treeProto.cover = tree_cover;
+treeProto.data = tree_data;
+treeProto.extent = tree_extent;
+treeProto.find = tree_find;
+treeProto.remove = tree_remove;
+treeProto.removeAll = removeAll;
+treeProto.root = tree_root;
+treeProto.size = tree_size;
+treeProto.visit = tree_visit;
+treeProto.visitAfter = tree_visitAfter;
+treeProto.x = tree_x;
+treeProto.y = tree_y;
+
+function x$1(d) {
+  return d.x + d.vx;
+}
+
+function y$1(d) {
+  return d.y + d.vy;
+}
+
+function index$2(d) {
+  return d.index;
+}
+
+function find(nodeById, nodeId) {
+  var node = nodeById.get(nodeId);
+  if (!node) throw new Error("missing: " + nodeId);
+  return node;
+}
+
+function x$2(d) {
+  return d.x;
+}
+
+function y$2(d) {
+  return d.y;
+}
+
+var initialRadius = 10;
+var initialAngle = Math.PI * (3 - Math.sqrt(5));
+
+// Adds floating point numbers with twice the normal precision.
+// Reference: J. R. Shewchuk, Adaptive Precision Floating-Point Arithmetic and
+// Fast Robust Geometric Predicates, Discrete & Computational Geometry 18(3)
+// 305–363 (1997).
+// Code adapted from GeographicLib by Charles F. F. Karney,
+// http://geographiclib.sourceforge.net/
+
+var adder$1 = function() {
+  return new Adder$1;
+};
+
+function Adder$1() {
+  this.reset();
+}
+
+Adder$1.prototype = {
+  constructor: Adder$1,
+  reset: function() {
+    this.s = // rounded value
+    this.t = 0; // exact error
+  },
+  add: function(y) {
+    add$2(temp$1, y, this.t);
+    add$2(this, temp$1.s, this.s);
+    if (this.s) this.t += temp$1.t;
+    else this.s = temp$1.t;
+  },
+  valueOf: function() {
+    return this.s;
+  }
+};
+
+var temp$1 = new Adder$1;
+
+function add$2(adder, a, b) {
+  var x = adder.s = a + b,
+      bv = x - a,
+      av = x - bv;
+  adder.t = (a - av) + (b - bv);
+}
+
+var epsilon$5 = 1e-6;
+var epsilon2$2 = 1e-12;
+var pi$5 = Math.PI;
+var halfPi$4 = pi$5 / 2;
+var quarterPi$1 = pi$5 / 4;
+var tau$5 = pi$5 * 2;
+
+var degrees$2 = 180 / pi$5;
+var radians$1 = pi$5 / 180;
+
+var abs$2 = Math.abs;
+var atan$1 = Math.atan;
+var atan2$2 = Math.atan2;
+var cos$3 = Math.cos;
+var ceil$1 = Math.ceil;
+var exp$1 = Math.exp;
+
+var log$3 = Math.log;
+var pow$3 = Math.pow;
+var sin$3 = Math.sin;
+var sign$2 = Math.sign || function(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; };
+var sqrt$4 = Math.sqrt;
+var tan$1 = Math.tan;
+
+function acos$2(x) {
+  return x > 1 ? 0 : x < -1 ? pi$5 : Math.acos(x);
+}
+
+function asin$2(x) {
+  return x > 1 ? halfPi$4 : x < -1 ? -halfPi$4 : Math.asin(x);
+}
+
+function haversin$1(x) {
+  return (x = sin$3(x / 2)) * x;
+}
+
+function noop$4() {}
+
+function streamGeometry$1(geometry, stream) {
+  if (geometry && streamGeometryType$1.hasOwnProperty(geometry.type)) {
+    streamGeometryType$1[geometry.type](geometry, stream);
+  }
+}
+
+var streamObjectType$1 = {
+  Feature: function(object, stream) {
+    streamGeometry$1(object.geometry, stream);
+  },
+  FeatureCollection: function(object, stream) {
+    var features = object.features, i = -1, n = features.length;
+    while (++i < n) streamGeometry$1(features[i].geometry, stream);
+  }
+};
+
+var streamGeometryType$1 = {
+  Sphere: function(object, stream) {
+    stream.sphere();
+  },
+  Point: function(object, stream) {
+    object = object.coordinates;
+    stream.point(object[0], object[1], object[2]);
+  },
+  MultiPoint: function(object, stream) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) object = coordinates[i], stream.point(object[0], object[1], object[2]);
+  },
+  LineString: function(object, stream) {
+    streamLine$1(object.coordinates, stream, 0);
+  },
+  MultiLineString: function(object, stream) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) streamLine$1(coordinates[i], stream, 0);
+  },
+  Polygon: function(object, stream) {
+    streamPolygon$1(object.coordinates, stream);
+  },
+  MultiPolygon: function(object, stream) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) streamPolygon$1(coordinates[i], stream);
+  },
+  GeometryCollection: function(object, stream) {
+    var geometries = object.geometries, i = -1, n = geometries.length;
+    while (++i < n) streamGeometry$1(geometries[i], stream);
+  }
+};
+
+function streamLine$1(coordinates, stream, closed) {
+  var i = -1, n = coordinates.length - closed, coordinate;
+  stream.lineStart();
+  while (++i < n) coordinate = coordinates[i], stream.point(coordinate[0], coordinate[1], coordinate[2]);
+  stream.lineEnd();
+}
+
+function streamPolygon$1(coordinates, stream) {
+  var i = -1, n = coordinates.length;
+  stream.polygonStart();
+  while (++i < n) streamLine$1(coordinates[i], stream, 1);
+  stream.polygonEnd();
+}
+
+var geoStream$1 = function(object, stream) {
+  if (object && streamObjectType$1.hasOwnProperty(object.type)) {
+    streamObjectType$1[object.type](object, stream);
+  } else {
+    streamGeometry$1(object, stream);
+  }
+};
+
+var areaRingSum$2 = adder$1();
+
+var areaSum$2 = adder$1();
+var lambda00$3;
+var phi00$3;
+var lambda0$3;
+var cosPhi0$2;
+var sinPhi0$2;
+
+var areaStream$2 = {
+  point: noop$4,
+  lineStart: noop$4,
+  lineEnd: noop$4,
+  polygonStart: function() {
+    areaRingSum$2.reset();
+    areaStream$2.lineStart = areaRingStart$2;
+    areaStream$2.lineEnd = areaRingEnd$2;
+  },
+  polygonEnd: function() {
+    var areaRing = +areaRingSum$2;
+    areaSum$2.add(areaRing < 0 ? tau$5 + areaRing : areaRing);
+    this.lineStart = this.lineEnd = this.point = noop$4;
+  },
+  sphere: function() {
+    areaSum$2.add(tau$5);
+  }
+};
+
+function areaRingStart$2() {
+  areaStream$2.point = areaPointFirst$2;
+}
+
+function areaRingEnd$2() {
+  areaPoint$2(lambda00$3, phi00$3);
+}
+
+function areaPointFirst$2(lambda, phi) {
+  areaStream$2.point = areaPoint$2;
+  lambda00$3 = lambda, phi00$3 = phi;
+  lambda *= radians$1, phi *= radians$1;
+  lambda0$3 = lambda, cosPhi0$2 = cos$3(phi = phi / 2 + quarterPi$1), sinPhi0$2 = sin$3(phi);
+}
+
+function areaPoint$2(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  phi = phi / 2 + quarterPi$1; // half the angular distance from south pole
+
+  // Spherical excess E for a spherical triangle with vertices: south pole,
+  // previous point, current point.  Uses a formula derived from Cagnoli’s
+  // theorem.  See Todhunter, Spherical Trig. (1871), Sec. 103, Eq. (2).
+  var dLambda = lambda - lambda0$3,
+      sdLambda = dLambda >= 0 ? 1 : -1,
+      adLambda = sdLambda * dLambda,
+      cosPhi = cos$3(phi),
+      sinPhi = sin$3(phi),
+      k = sinPhi0$2 * sinPhi,
+      u = cosPhi0$2 * cosPhi + k * cos$3(adLambda),
+      v = k * sdLambda * sin$3(adLambda);
+  areaRingSum$2.add(atan2$2(v, u));
+
+  // Advance the previous points.
+  lambda0$3 = lambda, cosPhi0$2 = cosPhi, sinPhi0$2 = sinPhi;
+}
+
+function spherical$1(cartesian) {
+  return [atan2$2(cartesian[1], cartesian[0]), asin$2(cartesian[2])];
+}
+
+function cartesian$1(spherical) {
+  var lambda = spherical[0], phi = spherical[1], cosPhi = cos$3(phi);
+  return [cosPhi * cos$3(lambda), cosPhi * sin$3(lambda), sin$3(phi)];
+}
+
+function cartesianDot$1(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function cartesianCross$1(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+// TODO return a
+function cartesianAddInPlace$1(a, b) {
+  a[0] += b[0], a[1] += b[1], a[2] += b[2];
+}
+
+function cartesianScale$1(vector, k) {
+  return [vector[0] * k, vector[1] * k, vector[2] * k];
+}
+
+// TODO return d
+function cartesianNormalizeInPlace$1(d) {
+  var l = sqrt$4(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+  d[0] /= l, d[1] /= l, d[2] /= l;
+}
+
+var lambda0$4;
+var phi0$1;
+var lambda1$1;
+var phi1$1;
+var lambda2$1;
+var lambda00$4;
+var phi00$4;
+var p0$1;
+var deltaSum$1 = adder$1();
+var ranges$1;
+var range$3;
+
+var boundsStream$3 = {
+  point: boundsPoint$2,
+  lineStart: boundsLineStart$1,
+  lineEnd: boundsLineEnd$1,
+  polygonStart: function() {
+    boundsStream$3.point = boundsRingPoint$1;
+    boundsStream$3.lineStart = boundsRingStart$1;
+    boundsStream$3.lineEnd = boundsRingEnd$1;
+    deltaSum$1.reset();
+    areaStream$2.polygonStart();
+  },
+  polygonEnd: function() {
+    areaStream$2.polygonEnd();
+    boundsStream$3.point = boundsPoint$2;
+    boundsStream$3.lineStart = boundsLineStart$1;
+    boundsStream$3.lineEnd = boundsLineEnd$1;
+    if (areaRingSum$2 < 0) lambda0$4 = -(lambda1$1 = 180), phi0$1 = -(phi1$1 = 90);
+    else if (deltaSum$1 > epsilon$5) phi1$1 = 90;
+    else if (deltaSum$1 < -epsilon$5) phi0$1 = -90;
+    range$3[0] = lambda0$4, range$3[1] = lambda1$1;
+  }
+};
+
+function boundsPoint$2(lambda, phi) {
+  ranges$1.push(range$3 = [lambda0$4 = lambda, lambda1$1 = lambda]);
+  if (phi < phi0$1) phi0$1 = phi;
+  if (phi > phi1$1) phi1$1 = phi;
+}
+
+function linePoint$1(lambda, phi) {
+  var p = cartesian$1([lambda * radians$1, phi * radians$1]);
+  if (p0$1) {
+    var normal = cartesianCross$1(p0$1, p),
+        equatorial = [normal[1], -normal[0], 0],
+        inflection = cartesianCross$1(equatorial, normal);
+    cartesianNormalizeInPlace$1(inflection);
+    inflection = spherical$1(inflection);
+    var delta = lambda - lambda2$1,
+        sign$$1 = delta > 0 ? 1 : -1,
+        lambdai = inflection[0] * degrees$2 * sign$$1,
+        phii,
+        antimeridian = abs$2(delta) > 180;
+    if (antimeridian ^ (sign$$1 * lambda2$1 < lambdai && lambdai < sign$$1 * lambda)) {
+      phii = inflection[1] * degrees$2;
+      if (phii > phi1$1) phi1$1 = phii;
+    } else if (lambdai = (lambdai + 360) % 360 - 180, antimeridian ^ (sign$$1 * lambda2$1 < lambdai && lambdai < sign$$1 * lambda)) {
+      phii = -inflection[1] * degrees$2;
+      if (phii < phi0$1) phi0$1 = phii;
+    } else {
+      if (phi < phi0$1) phi0$1 = phi;
+      if (phi > phi1$1) phi1$1 = phi;
+    }
+    if (antimeridian) {
+      if (lambda < lambda2$1) {
+        if (angle$1(lambda0$4, lambda) > angle$1(lambda0$4, lambda1$1)) lambda1$1 = lambda;
+      } else {
+        if (angle$1(lambda, lambda1$1) > angle$1(lambda0$4, lambda1$1)) lambda0$4 = lambda;
+      }
+    } else {
+      if (lambda1$1 >= lambda0$4) {
+        if (lambda < lambda0$4) lambda0$4 = lambda;
+        if (lambda > lambda1$1) lambda1$1 = lambda;
+      } else {
+        if (lambda > lambda2$1) {
+          if (angle$1(lambda0$4, lambda) > angle$1(lambda0$4, lambda1$1)) lambda1$1 = lambda;
+        } else {
+          if (angle$1(lambda, lambda1$1) > angle$1(lambda0$4, lambda1$1)) lambda0$4 = lambda;
+        }
+      }
+    }
+  } else {
+    ranges$1.push(range$3 = [lambda0$4 = lambda, lambda1$1 = lambda]);
+  }
+  if (phi < phi0$1) phi0$1 = phi;
+  if (phi > phi1$1) phi1$1 = phi;
+  p0$1 = p, lambda2$1 = lambda;
+}
+
+function boundsLineStart$1() {
+  boundsStream$3.point = linePoint$1;
+}
+
+function boundsLineEnd$1() {
+  range$3[0] = lambda0$4, range$3[1] = lambda1$1;
+  boundsStream$3.point = boundsPoint$2;
+  p0$1 = null;
+}
+
+function boundsRingPoint$1(lambda, phi) {
+  if (p0$1) {
+    var delta = lambda - lambda2$1;
+    deltaSum$1.add(abs$2(delta) > 180 ? delta + (delta > 0 ? 360 : -360) : delta);
+  } else {
+    lambda00$4 = lambda, phi00$4 = phi;
+  }
+  areaStream$2.point(lambda, phi);
+  linePoint$1(lambda, phi);
+}
+
+function boundsRingStart$1() {
+  areaStream$2.lineStart();
+}
+
+function boundsRingEnd$1() {
+  boundsRingPoint$1(lambda00$4, phi00$4);
+  areaStream$2.lineEnd();
+  if (abs$2(deltaSum$1) > epsilon$5) lambda0$4 = -(lambda1$1 = 180);
+  range$3[0] = lambda0$4, range$3[1] = lambda1$1;
+  p0$1 = null;
+}
+
+// Finds the left-right distance between two longitudes.
+// This is almost the same as (lambda1 - lambda0 + 360°) % 360°, except that we want
+// the distance between ±180° to be 360°.
+function angle$1(lambda0, lambda1) {
+  return (lambda1 -= lambda0) < 0 ? lambda1 + 360 : lambda1;
+}
+
+function rangeCompare$1(a, b) {
+  return a[0] - b[0];
+}
+
+function rangeContains$1(range, x) {
+  return range[0] <= range[1] ? range[0] <= x && x <= range[1] : x < range[0] || range[1] < x;
+}
+
+var W0$1;
+var W1$1;
+var X0$2;
+var Y0$2;
+var Z0$2;
+var X1$2;
+var Y1$2;
+var Z1$2;
+var X2$2;
+var Y2$2;
+var Z2$2;
+var lambda00$5;
+var phi00$5;
+var x0$5;
+var y0$5;
+var z0$1; // previous point
+
+var centroidStream$2 = {
+  sphere: noop$4,
+  point: centroidPoint$2,
+  lineStart: centroidLineStart$2,
+  lineEnd: centroidLineEnd$2,
+  polygonStart: function() {
+    centroidStream$2.lineStart = centroidRingStart$2;
+    centroidStream$2.lineEnd = centroidRingEnd$2;
+  },
+  polygonEnd: function() {
+    centroidStream$2.lineStart = centroidLineStart$2;
+    centroidStream$2.lineEnd = centroidLineEnd$2;
+  }
+};
+
+// Arithmetic mean of Cartesian vectors.
+function centroidPoint$2(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  var cosPhi = cos$3(phi);
+  centroidPointCartesian$1(cosPhi * cos$3(lambda), cosPhi * sin$3(lambda), sin$3(phi));
+}
+
+function centroidPointCartesian$1(x, y, z) {
+  ++W0$1;
+  X0$2 += (x - X0$2) / W0$1;
+  Y0$2 += (y - Y0$2) / W0$1;
+  Z0$2 += (z - Z0$2) / W0$1;
+}
+
+function centroidLineStart$2() {
+  centroidStream$2.point = centroidLinePointFirst$1;
+}
+
+function centroidLinePointFirst$1(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  var cosPhi = cos$3(phi);
+  x0$5 = cosPhi * cos$3(lambda);
+  y0$5 = cosPhi * sin$3(lambda);
+  z0$1 = sin$3(phi);
+  centroidStream$2.point = centroidLinePoint$1;
+  centroidPointCartesian$1(x0$5, y0$5, z0$1);
+}
+
+function centroidLinePoint$1(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  var cosPhi = cos$3(phi),
+      x = cosPhi * cos$3(lambda),
+      y = cosPhi * sin$3(lambda),
+      z = sin$3(phi),
+      w = atan2$2(sqrt$4((w = y0$5 * z - z0$1 * y) * w + (w = z0$1 * x - x0$5 * z) * w + (w = x0$5 * y - y0$5 * x) * w), x0$5 * x + y0$5 * y + z0$1 * z);
+  W1$1 += w;
+  X1$2 += w * (x0$5 + (x0$5 = x));
+  Y1$2 += w * (y0$5 + (y0$5 = y));
+  Z1$2 += w * (z0$1 + (z0$1 = z));
+  centroidPointCartesian$1(x0$5, y0$5, z0$1);
+}
+
+function centroidLineEnd$2() {
+  centroidStream$2.point = centroidPoint$2;
+}
+
+// See J. E. Brock, The Inertia Tensor for a Spherical Triangle,
+// J. Applied Mechanics 42, 239 (1975).
+function centroidRingStart$2() {
+  centroidStream$2.point = centroidRingPointFirst$1;
+}
+
+function centroidRingEnd$2() {
+  centroidRingPoint$1(lambda00$5, phi00$5);
+  centroidStream$2.point = centroidPoint$2;
+}
+
+function centroidRingPointFirst$1(lambda, phi) {
+  lambda00$5 = lambda, phi00$5 = phi;
+  lambda *= radians$1, phi *= radians$1;
+  centroidStream$2.point = centroidRingPoint$1;
+  var cosPhi = cos$3(phi);
+  x0$5 = cosPhi * cos$3(lambda);
+  y0$5 = cosPhi * sin$3(lambda);
+  z0$1 = sin$3(phi);
+  centroidPointCartesian$1(x0$5, y0$5, z0$1);
+}
+
+function centroidRingPoint$1(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  var cosPhi = cos$3(phi),
+      x = cosPhi * cos$3(lambda),
+      y = cosPhi * sin$3(lambda),
+      z = sin$3(phi),
+      cx = y0$5 * z - z0$1 * y,
+      cy = z0$1 * x - x0$5 * z,
+      cz = x0$5 * y - y0$5 * x,
+      m = sqrt$4(cx * cx + cy * cy + cz * cz),
+      w = asin$2(m), // line weight = angle
+      v = m && -w / m; // area weight multiplier
+  X2$2 += v * cx;
+  Y2$2 += v * cy;
+  Z2$2 += v * cz;
+  W1$1 += w;
+  X1$2 += w * (x0$5 + (x0$5 = x));
+  Y1$2 += w * (y0$5 + (y0$5 = y));
+  Z1$2 += w * (z0$1 + (z0$1 = z));
+  centroidPointCartesian$1(x0$5, y0$5, z0$1);
+}
+
+var constant$18 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+var compose$1 = function(a, b) {
+
+  function compose(x, y) {
+    return x = a(x, y), b(x[0], x[1]);
+  }
+
+  if (a.invert && b.invert) compose.invert = function(x, y) {
+    return x = b.invert(x, y), x && a.invert(x[0], x[1]);
+  };
+
+  return compose;
+};
+
+function rotationIdentity$1(lambda, phi) {
+  return [lambda > pi$5 ? lambda - tau$5 : lambda < -pi$5 ? lambda + tau$5 : lambda, phi];
+}
+
+rotationIdentity$1.invert = rotationIdentity$1;
+
+function rotateRadians$1(deltaLambda, deltaPhi, deltaGamma) {
+  return (deltaLambda %= tau$5) ? (deltaPhi || deltaGamma ? compose$1(rotationLambda$1(deltaLambda), rotationPhiGamma$1(deltaPhi, deltaGamma))
+    : rotationLambda$1(deltaLambda))
+    : (deltaPhi || deltaGamma ? rotationPhiGamma$1(deltaPhi, deltaGamma)
+    : rotationIdentity$1);
+}
+
+function forwardRotationLambda$1(deltaLambda) {
+  return function(lambda, phi) {
+    return lambda += deltaLambda, [lambda > pi$5 ? lambda - tau$5 : lambda < -pi$5 ? lambda + tau$5 : lambda, phi];
+  };
+}
+
+function rotationLambda$1(deltaLambda) {
+  var rotation = forwardRotationLambda$1(deltaLambda);
+  rotation.invert = forwardRotationLambda$1(-deltaLambda);
+  return rotation;
+}
+
+function rotationPhiGamma$1(deltaPhi, deltaGamma) {
+  var cosDeltaPhi = cos$3(deltaPhi),
+      sinDeltaPhi = sin$3(deltaPhi),
+      cosDeltaGamma = cos$3(deltaGamma),
+      sinDeltaGamma = sin$3(deltaGamma);
+
+  function rotation(lambda, phi) {
+    var cosPhi = cos$3(phi),
+        x = cos$3(lambda) * cosPhi,
+        y = sin$3(lambda) * cosPhi,
+        z = sin$3(phi),
+        k = z * cosDeltaPhi + x * sinDeltaPhi;
+    return [
+      atan2$2(y * cosDeltaGamma - k * sinDeltaGamma, x * cosDeltaPhi - z * sinDeltaPhi),
+      asin$2(k * cosDeltaGamma + y * sinDeltaGamma)
+    ];
+  }
+
+  rotation.invert = function(lambda, phi) {
+    var cosPhi = cos$3(phi),
+        x = cos$3(lambda) * cosPhi,
+        y = sin$3(lambda) * cosPhi,
+        z = sin$3(phi),
+        k = z * cosDeltaGamma - y * sinDeltaGamma;
+    return [
+      atan2$2(y * cosDeltaGamma + z * sinDeltaGamma, x * cosDeltaPhi + k * sinDeltaPhi),
+      asin$2(k * cosDeltaPhi - x * sinDeltaPhi)
+    ];
+  };
+
+  return rotation;
+}
+
+var rotation$1 = function(rotate) {
+  rotate = rotateRadians$1(rotate[0] * radians$1, rotate[1] * radians$1, rotate.length > 2 ? rotate[2] * radians$1 : 0);
+
+  function forward(coordinates) {
+    coordinates = rotate(coordinates[0] * radians$1, coordinates[1] * radians$1);
+    return coordinates[0] *= degrees$2, coordinates[1] *= degrees$2, coordinates;
+  }
+
+  forward.invert = function(coordinates) {
+    coordinates = rotate.invert(coordinates[0] * radians$1, coordinates[1] * radians$1);
+    return coordinates[0] *= degrees$2, coordinates[1] *= degrees$2, coordinates;
+  };
+
+  return forward;
+};
+
+// Generates a circle centered at [0°, 0°], with a given radius and precision.
+function circleStream$1(stream, radius, delta, direction, t0, t1) {
+  if (!delta) return;
+  var cosRadius = cos$3(radius),
+      sinRadius = sin$3(radius),
+      step = direction * delta;
+  if (t0 == null) {
+    t0 = radius + direction * tau$5;
+    t1 = radius - step / 2;
+  } else {
+    t0 = circleRadius$1(cosRadius, t0);
+    t1 = circleRadius$1(cosRadius, t1);
+    if (direction > 0 ? t0 < t1 : t0 > t1) t0 += direction * tau$5;
+  }
+  for (var point, t = t0; direction > 0 ? t > t1 : t < t1; t -= step) {
+    point = spherical$1([cosRadius, -sinRadius * cos$3(t), -sinRadius * sin$3(t)]);
+    stream.point(point[0], point[1]);
+  }
+}
+
+// Returns the signed angle of a cartesian point relative to [cosRadius, 0, 0].
+function circleRadius$1(cosRadius, point) {
+  point = cartesian$1(point), point[0] -= cosRadius;
+  cartesianNormalizeInPlace$1(point);
+  var radius = acos$2(-point[1]);
+  return ((-point[2] < 0 ? -radius : radius) + tau$5 - epsilon$5) % tau$5;
+}
+
+var clipBuffer$1 = function() {
+  var lines = [],
+      line;
+  return {
+    point: function(x, y) {
+      line.push([x, y]);
+    },
+    lineStart: function() {
+      lines.push(line = []);
+    },
+    lineEnd: noop$4,
+    rejoin: function() {
+      if (lines.length > 1) lines.push(lines.pop().concat(lines.shift()));
+    },
+    result: function() {
+      var result = lines;
+      lines = [];
+      line = null;
+      return result;
+    }
+  };
+};
+
+var clipLine$1 = function(a, b, x0, y0, x1, y1) {
+  var ax = a[0],
+      ay = a[1],
+      bx = b[0],
+      by = b[1],
+      t0 = 0,
+      t1 = 1,
+      dx = bx - ax,
+      dy = by - ay,
+      r;
+
+  r = x0 - ax;
+  if (!dx && r > 0) return;
+  r /= dx;
+  if (dx < 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  } else if (dx > 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  }
+
+  r = x1 - ax;
+  if (!dx && r < 0) return;
+  r /= dx;
+  if (dx < 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  } else if (dx > 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  }
+
+  r = y0 - ay;
+  if (!dy && r > 0) return;
+  r /= dy;
+  if (dy < 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  } else if (dy > 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  }
+
+  r = y1 - ay;
+  if (!dy && r < 0) return;
+  r /= dy;
+  if (dy < 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  } else if (dy > 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  }
+
+  if (t0 > 0) a[0] = ax + t0 * dx, a[1] = ay + t0 * dy;
+  if (t1 < 1) b[0] = ax + t1 * dx, b[1] = ay + t1 * dy;
+  return true;
+};
+
+var pointEqual$1 = function(a, b) {
+  return abs$2(a[0] - b[0]) < epsilon$5 && abs$2(a[1] - b[1]) < epsilon$5;
+};
+
+function Intersection$1(point, points, other, entry) {
+  this.x = point;
+  this.z = points;
+  this.o = other; // another intersection
+  this.e = entry; // is an entry?
+  this.v = false; // visited
+  this.n = this.p = null; // next & previous
+}
+
+// A generalized polygon clipping algorithm: given a polygon that has been cut
+// into its visible line segments, and rejoins the segments by interpolating
+// along the clip edge.
+var clipPolygon$1 = function(segments, compareIntersection, startInside, interpolate, stream) {
+  var subject = [],
+      clip = [],
+      i,
+      n;
+
+  segments.forEach(function(segment) {
+    if ((n = segment.length - 1) <= 0) return;
+    var n, p0 = segment[0], p1 = segment[n], x;
+
+    // If the first and last points of a segment are coincident, then treat as a
+    // closed ring. TODO if all rings are closed, then the winding order of the
+    // exterior ring should be checked.
+    if (pointEqual$1(p0, p1)) {
+      stream.lineStart();
+      for (i = 0; i < n; ++i) stream.point((p0 = segment[i])[0], p0[1]);
+      stream.lineEnd();
+      return;
+    }
+
+    subject.push(x = new Intersection$1(p0, segment, null, true));
+    clip.push(x.o = new Intersection$1(p0, null, x, false));
+    subject.push(x = new Intersection$1(p1, segment, null, false));
+    clip.push(x.o = new Intersection$1(p1, null, x, true));
+  });
+
+  if (!subject.length) return;
+
+  clip.sort(compareIntersection);
+  link$2(subject);
+  link$2(clip);
+
+  for (i = 0, n = clip.length; i < n; ++i) {
+    clip[i].e = startInside = !startInside;
+  }
+
+  var start = subject[0],
+      points,
+      point;
+
+  while (1) {
+    // Find first unvisited intersection.
+    var current = start,
+        isSubject = true;
+    while (current.v) if ((current = current.n) === start) return;
+    points = current.z;
+    stream.lineStart();
+    do {
+      current.v = current.o.v = true;
+      if (current.e) {
+        if (isSubject) {
+          for (i = 0, n = points.length; i < n; ++i) stream.point((point = points[i])[0], point[1]);
+        } else {
+          interpolate(current.x, current.n.x, 1, stream);
+        }
+        current = current.n;
+      } else {
+        if (isSubject) {
+          points = current.p.z;
+          for (i = points.length - 1; i >= 0; --i) stream.point((point = points[i])[0], point[1]);
+        } else {
+          interpolate(current.x, current.p.x, -1, stream);
+        }
+        current = current.p;
+      }
+      current = current.o;
+      points = current.z;
+      isSubject = !isSubject;
+    } while (!current.v);
+    stream.lineEnd();
+  }
+};
+
+function link$2(array) {
+  if (!(n = array.length)) return;
+  var n,
+      i = 0,
+      a = array[0],
+      b;
+  while (++i < n) {
+    a.n = b = array[i];
+    b.p = a;
+    a = b;
+  }
+  a.n = b = array[0];
+  b.p = a;
+}
+
+var clipMax$1 = 1e9;
+var clipMin$1 = -clipMax$1;
+
+// TODO Use d3-polygon’s polygonContains here for the ring check?
+// TODO Eliminate duplicate buffering in clipBuffer and polygon.push?
+
+function clipExtent$1(x0, y0, x1, y1) {
+
+  function visible(x, y) {
+    return x0 <= x && x <= x1 && y0 <= y && y <= y1;
+  }
+
+  function interpolate(from, to, direction, stream) {
+    var a = 0, a1 = 0;
+    if (from == null
+        || (a = corner(from, direction)) !== (a1 = corner(to, direction))
+        || comparePoint(from, to) < 0 ^ direction > 0) {
+      do stream.point(a === 0 || a === 3 ? x0 : x1, a > 1 ? y1 : y0);
+      while ((a = (a + direction + 4) % 4) !== a1);
+    } else {
+      stream.point(to[0], to[1]);
+    }
+  }
+
+  function corner(p, direction) {
+    return abs$2(p[0] - x0) < epsilon$5 ? direction > 0 ? 0 : 3
+        : abs$2(p[0] - x1) < epsilon$5 ? direction > 0 ? 2 : 1
+        : abs$2(p[1] - y0) < epsilon$5 ? direction > 0 ? 1 : 0
+        : direction > 0 ? 3 : 2; // abs(p[1] - y1) < epsilon
+  }
+
+  function compareIntersection(a, b) {
+    return comparePoint(a.x, b.x);
+  }
+
+  function comparePoint(a, b) {
+    var ca = corner(a, 1),
+        cb = corner(b, 1);
+    return ca !== cb ? ca - cb
+        : ca === 0 ? b[1] - a[1]
+        : ca === 1 ? a[0] - b[0]
+        : ca === 2 ? a[1] - b[1]
+        : b[0] - a[0];
+  }
+
+  return function(stream) {
+    var activeStream = stream,
+        bufferStream = clipBuffer$1(),
+        segments,
+        polygon,
+        ring,
+        x__, y__, v__, // first point
+        x_, y_, v_, // previous point
+        first,
+        clean;
+
+    var clipStream = {
+      point: point,
+      lineStart: lineStart,
+      lineEnd: lineEnd,
+      polygonStart: polygonStart,
+      polygonEnd: polygonEnd
+    };
+
+    function point(x, y) {
+      if (visible(x, y)) activeStream.point(x, y);
+    }
+
+    function polygonInside() {
+      var winding = 0;
+
+      for (var i = 0, n = polygon.length; i < n; ++i) {
+        for (var ring = polygon[i], j = 1, m = ring.length, point = ring[0], a0, a1, b0 = point[0], b1 = point[1]; j < m; ++j) {
+          a0 = b0, a1 = b1, point = ring[j], b0 = point[0], b1 = point[1];
+          if (a1 <= y1) { if (b1 > y1 && (b0 - a0) * (y1 - a1) > (b1 - a1) * (x0 - a0)) ++winding; }
+          else { if (b1 <= y1 && (b0 - a0) * (y1 - a1) < (b1 - a1) * (x0 - a0)) --winding; }
+        }
+      }
+
+      return winding;
+    }
+
+    // Buffer geometry within a polygon and then clip it en masse.
+    function polygonStart() {
+      activeStream = bufferStream, segments = [], polygon = [], clean = true;
+    }
+
+    function polygonEnd() {
+      var startInside = polygonInside(),
+          cleanInside = clean && startInside,
+          visible = (segments = merge$2(segments)).length;
+      if (cleanInside || visible) {
+        stream.polygonStart();
+        if (cleanInside) {
+          stream.lineStart();
+          interpolate(null, null, 1, stream);
+          stream.lineEnd();
+        }
+        if (visible) {
+          clipPolygon$1(segments, compareIntersection, startInside, interpolate, stream);
+        }
+        stream.polygonEnd();
+      }
+      activeStream = stream, segments = polygon = ring = null;
+    }
+
+    function lineStart() {
+      clipStream.point = linePoint;
+      if (polygon) polygon.push(ring = []);
+      first = true;
+      v_ = false;
+      x_ = y_ = NaN;
+    }
+
+    // TODO rather than special-case polygons, simply handle them separately.
+    // Ideally, coincident intersection points should be jittered to avoid
+    // clipping issues.
+    function lineEnd() {
+      if (segments) {
+        linePoint(x__, y__);
+        if (v__ && v_) bufferStream.rejoin();
+        segments.push(bufferStream.result());
+      }
+      clipStream.point = point;
+      if (v_) activeStream.lineEnd();
+    }
+
+    function linePoint(x, y) {
+      var v = visible(x, y);
+      if (polygon) ring.push([x, y]);
+      if (first) {
+        x__ = x, y__ = y, v__ = v;
+        first = false;
+        if (v) {
+          activeStream.lineStart();
+          activeStream.point(x, y);
+        }
+      } else {
+        if (v && v_) activeStream.point(x, y);
+        else {
+          var a = [x_ = Math.max(clipMin$1, Math.min(clipMax$1, x_)), y_ = Math.max(clipMin$1, Math.min(clipMax$1, y_))],
+              b = [x = Math.max(clipMin$1, Math.min(clipMax$1, x)), y = Math.max(clipMin$1, Math.min(clipMax$1, y))];
+          if (clipLine$1(a, b, x0, y0, x1, y1)) {
+            if (!v_) {
+              activeStream.lineStart();
+              activeStream.point(a[0], a[1]);
+            }
+            activeStream.point(b[0], b[1]);
+            if (!v) activeStream.lineEnd();
+            clean = false;
+          } else if (v) {
+            activeStream.lineStart();
+            activeStream.point(x, y);
+            clean = false;
+          }
+        }
+      }
+      x_ = x, y_ = y, v_ = v;
+    }
+
+    return clipStream;
+  };
+}
+
+var sum$5 = adder$1();
+
+var polygonContains$1 = function(polygon, point) {
+  var lambda = point[0],
+      phi = point[1],
+      normal = [sin$3(lambda), -cos$3(lambda), 0],
+      angle = 0,
+      winding = 0;
+
+  sum$5.reset();
+
+  for (var i = 0, n = polygon.length; i < n; ++i) {
+    if (!(m = (ring = polygon[i]).length)) continue;
+    var ring,
+        m,
+        point0 = ring[m - 1],
+        lambda0 = point0[0],
+        phi0 = point0[1] / 2 + quarterPi$1,
+        sinPhi0 = sin$3(phi0),
+        cosPhi0 = cos$3(phi0);
+
+    for (var j = 0; j < m; ++j, lambda0 = lambda1, sinPhi0 = sinPhi1, cosPhi0 = cosPhi1, point0 = point1) {
+      var point1 = ring[j],
+          lambda1 = point1[0],
+          phi1 = point1[1] / 2 + quarterPi$1,
+          sinPhi1 = sin$3(phi1),
+          cosPhi1 = cos$3(phi1),
+          delta = lambda1 - lambda0,
+          sign$$1 = delta >= 0 ? 1 : -1,
+          absDelta = sign$$1 * delta,
+          antimeridian = absDelta > pi$5,
+          k = sinPhi0 * sinPhi1;
+
+      sum$5.add(atan2$2(k * sign$$1 * sin$3(absDelta), cosPhi0 * cosPhi1 + k * cos$3(absDelta)));
+      angle += antimeridian ? delta + sign$$1 * tau$5 : delta;
+
+      // Are the longitudes either side of the point’s meridian (lambda),
+      // and are the latitudes smaller than the parallel (phi)?
+      if (antimeridian ^ lambda0 >= lambda ^ lambda1 >= lambda) {
+        var arc = cartesianCross$1(cartesian$1(point0), cartesian$1(point1));
+        cartesianNormalizeInPlace$1(arc);
+        var intersection = cartesianCross$1(normal, arc);
+        cartesianNormalizeInPlace$1(intersection);
+        var phiArc = (antimeridian ^ delta >= 0 ? -1 : 1) * asin$2(intersection[2]);
+        if (phi > phiArc || phi === phiArc && (arc[0] || arc[1])) {
+          winding += antimeridian ^ delta >= 0 ? 1 : -1;
+        }
+      }
+    }
+  }
+
+  // First, determine whether the South pole is inside or outside:
+  //
+  // It is inside if:
+  // * the polygon winds around it in a clockwise direction.
+  // * the polygon does not (cumulatively) wind around it, but has a negative
+  //   (counter-clockwise) area.
+  //
+  // Second, count the (signed) number of times a segment crosses a lambda
+  // from the point to the South pole.  If it is zero, then the point is the
+  // same side as the South pole.
+
+  return (angle < -epsilon$5 || angle < epsilon$5 && sum$5 < -epsilon$5) ^ (winding & 1);
+};
+
+var lengthSum$2 = adder$1();
+var lambda0$5;
+var sinPhi0$3;
+var cosPhi0$3;
+
+var lengthStream$2 = {
+  sphere: noop$4,
+  point: noop$4,
+  lineStart: lengthLineStart$1,
+  lineEnd: noop$4,
+  polygonStart: noop$4,
+  polygonEnd: noop$4
+};
+
+function lengthLineStart$1() {
+  lengthStream$2.point = lengthPointFirst$2;
+  lengthStream$2.lineEnd = lengthLineEnd$1;
+}
+
+function lengthLineEnd$1() {
+  lengthStream$2.point = lengthStream$2.lineEnd = noop$4;
+}
+
+function lengthPointFirst$2(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  lambda0$5 = lambda, sinPhi0$3 = sin$3(phi), cosPhi0$3 = cos$3(phi);
+  lengthStream$2.point = lengthPoint$2;
+}
+
+function lengthPoint$2(lambda, phi) {
+  lambda *= radians$1, phi *= radians$1;
+  var sinPhi = sin$3(phi),
+      cosPhi = cos$3(phi),
+      delta = abs$2(lambda - lambda0$5),
+      cosDelta = cos$3(delta),
+      sinDelta = sin$3(delta),
+      x = cosPhi * sinDelta,
+      y = cosPhi0$3 * sinPhi - sinPhi0$3 * cosPhi * cosDelta,
+      z = sinPhi0$3 * sinPhi + cosPhi0$3 * cosPhi * cosDelta;
+  lengthSum$2.add(atan2$2(sqrt$4(x * x + y * y), z));
+  lambda0$5 = lambda, sinPhi0$3 = sinPhi, cosPhi0$3 = cosPhi;
+}
+
+var length$4 = function(object) {
+  lengthSum$2.reset();
+  geoStream$1(object, lengthStream$2);
+  return +lengthSum$2;
+};
+
+var coordinates$1 = [null, null];
+var object$2 = {type: "LineString", coordinates: coordinates$1};
+
+var distance$1 = function(a, b) {
+  coordinates$1[0] = a;
+  coordinates$1[1] = b;
+  return length$4(object$2);
+};
+
+var containsGeometryType$1 = {
+  Sphere: function() {
+    return true;
+  },
+  Point: function(object, point) {
+    return containsPoint$1(object.coordinates, point);
+  },
+  MultiPoint: function(object, point) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) if (containsPoint$1(coordinates[i], point)) return true;
+    return false;
+  },
+  LineString: function(object, point) {
+    return containsLine$1(object.coordinates, point);
+  },
+  MultiLineString: function(object, point) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) if (containsLine$1(coordinates[i], point)) return true;
+    return false;
+  },
+  Polygon: function(object, point) {
+    return containsPolygon$1(object.coordinates, point);
+  },
+  MultiPolygon: function(object, point) {
+    var coordinates = object.coordinates, i = -1, n = coordinates.length;
+    while (++i < n) if (containsPolygon$1(coordinates[i], point)) return true;
+    return false;
+  },
+  GeometryCollection: function(object, point) {
+    var geometries = object.geometries, i = -1, n = geometries.length;
+    while (++i < n) if (containsGeometry$1(geometries[i], point)) return true;
+    return false;
+  }
+};
+
+function containsGeometry$1(geometry, point) {
+  return geometry && containsGeometryType$1.hasOwnProperty(geometry.type)
+      ? containsGeometryType$1[geometry.type](geometry, point)
+      : false;
+}
+
+function containsPoint$1(coordinates, point) {
+  return distance$1(coordinates, point) === 0;
+}
+
+function containsLine$1(coordinates, point) {
+  var ab = distance$1(coordinates[0], coordinates[1]),
+      ao = distance$1(coordinates[0], point),
+      ob = distance$1(point, coordinates[1]);
+  return ao + ob <= ab + epsilon$5;
+}
+
+function containsPolygon$1(coordinates, point) {
+  return !!polygonContains$1(coordinates.map(ringRadians$1), pointRadians$1(point));
+}
+
+function ringRadians$1(ring) {
+  return ring = ring.map(pointRadians$1), ring.pop(), ring;
+}
+
+function pointRadians$1(point) {
+  return [point[0] * radians$1, point[1] * radians$1];
+}
+
+function graticuleX$1(y0, y1, dy) {
+  var y = sequence(y0, y1 - epsilon$5, dy).concat(y1);
+  return function(x) { return y.map(function(y) { return [x, y]; }); };
+}
+
+function graticuleY$1(x0, x1, dx) {
+  var x = sequence(x0, x1 - epsilon$5, dx).concat(x1);
+  return function(y) { return x.map(function(x) { return [x, y]; }); };
+}
+
+var identity$14 = function(x) {
+  return x;
+};
+
+var areaSum$3 = adder$1();
+var areaRingSum$3 = adder$1();
+var x00$3;
+var y00$3;
+var x0$6;
+var y0$6;
+
+var areaStream$3 = {
+  point: noop$4,
+  lineStart: noop$4,
+  lineEnd: noop$4,
+  polygonStart: function() {
+    areaStream$3.lineStart = areaRingStart$3;
+    areaStream$3.lineEnd = areaRingEnd$3;
+  },
+  polygonEnd: function() {
+    areaStream$3.lineStart = areaStream$3.lineEnd = areaStream$3.point = noop$4;
+    areaSum$3.add(abs$2(areaRingSum$3));
+    areaRingSum$3.reset();
+  },
+  result: function() {
+    var area = areaSum$3 / 2;
+    areaSum$3.reset();
+    return area;
+  }
+};
+
+function areaRingStart$3() {
+  areaStream$3.point = areaPointFirst$3;
+}
+
+function areaPointFirst$3(x, y) {
+  areaStream$3.point = areaPoint$3;
+  x00$3 = x0$6 = x, y00$3 = y0$6 = y;
+}
+
+function areaPoint$3(x, y) {
+  areaRingSum$3.add(y0$6 * x - x0$6 * y);
+  x0$6 = x, y0$6 = y;
+}
+
+function areaRingEnd$3() {
+  areaPoint$3(x00$3, y00$3);
+}
+
+var x0$7 = Infinity;
+var y0$7 = x0$7;
+var x1$1 = -x0$7;
+var y1$1 = x1$1;
+
+var boundsStream$4 = {
+  point: boundsPoint$3,
+  lineStart: noop$4,
+  lineEnd: noop$4,
+  polygonStart: noop$4,
+  polygonEnd: noop$4,
+  result: function() {
+    var bounds = [[x0$7, y0$7], [x1$1, y1$1]];
+    x1$1 = y1$1 = -(y0$7 = x0$7 = Infinity);
+    return bounds;
+  }
+};
+
+function boundsPoint$3(x, y) {
+  if (x < x0$7) x0$7 = x;
+  if (x > x1$1) x1$1 = x;
+  if (y < y0$7) y0$7 = y;
+  if (y > y1$1) y1$1 = y;
+}
+
+// TODO Enforce positive area for exterior, negative area for interior?
+
+var X0$3 = 0;
+var Y0$3 = 0;
+var Z0$3 = 0;
+var X1$3 = 0;
+var Y1$3 = 0;
+var Z1$3 = 0;
+var X2$3 = 0;
+var Y2$3 = 0;
+var Z2$3 = 0;
+var x00$4;
+var y00$4;
+var x0$8;
+var y0$8;
+
+var centroidStream$3 = {
+  point: centroidPoint$3,
+  lineStart: centroidLineStart$3,
+  lineEnd: centroidLineEnd$3,
+  polygonStart: function() {
+    centroidStream$3.lineStart = centroidRingStart$3;
+    centroidStream$3.lineEnd = centroidRingEnd$3;
+  },
+  polygonEnd: function() {
+    centroidStream$3.point = centroidPoint$3;
+    centroidStream$3.lineStart = centroidLineStart$3;
+    centroidStream$3.lineEnd = centroidLineEnd$3;
+  },
+  result: function() {
+    var centroid = Z2$3 ? [X2$3 / Z2$3, Y2$3 / Z2$3]
+        : Z1$3 ? [X1$3 / Z1$3, Y1$3 / Z1$3]
+        : Z0$3 ? [X0$3 / Z0$3, Y0$3 / Z0$3]
+        : [NaN, NaN];
+    X0$3 = Y0$3 = Z0$3 =
+    X1$3 = Y1$3 = Z1$3 =
+    X2$3 = Y2$3 = Z2$3 = 0;
+    return centroid;
+  }
+};
+
+function centroidPoint$3(x, y) {
+  X0$3 += x;
+  Y0$3 += y;
+  ++Z0$3;
+}
+
+function centroidLineStart$3() {
+  centroidStream$3.point = centroidPointFirstLine$1;
+}
+
+function centroidPointFirstLine$1(x, y) {
+  centroidStream$3.point = centroidPointLine$1;
+  centroidPoint$3(x0$8 = x, y0$8 = y);
+}
+
+function centroidPointLine$1(x, y) {
+  var dx = x - x0$8, dy = y - y0$8, z = sqrt$4(dx * dx + dy * dy);
+  X1$3 += z * (x0$8 + x) / 2;
+  Y1$3 += z * (y0$8 + y) / 2;
+  Z1$3 += z;
+  centroidPoint$3(x0$8 = x, y0$8 = y);
+}
+
+function centroidLineEnd$3() {
+  centroidStream$3.point = centroidPoint$3;
+}
+
+function centroidRingStart$3() {
+  centroidStream$3.point = centroidPointFirstRing$1;
+}
+
+function centroidRingEnd$3() {
+  centroidPointRing$1(x00$4, y00$4);
+}
+
+function centroidPointFirstRing$1(x, y) {
+  centroidStream$3.point = centroidPointRing$1;
+  centroidPoint$3(x00$4 = x0$8 = x, y00$4 = y0$8 = y);
+}
+
+function centroidPointRing$1(x, y) {
+  var dx = x - x0$8,
+      dy = y - y0$8,
+      z = sqrt$4(dx * dx + dy * dy);
+
+  X1$3 += z * (x0$8 + x) / 2;
+  Y1$3 += z * (y0$8 + y) / 2;
+  Z1$3 += z;
+
+  z = y0$8 * x - x0$8 * y;
+  X2$3 += z * (x0$8 + x);
+  Y2$3 += z * (y0$8 + y);
+  Z2$3 += z * 3;
+  centroidPoint$3(x0$8 = x, y0$8 = y);
+}
+
+function PathContext$1(context) {
+  this._context = context;
+}
+
+PathContext$1.prototype = {
+  _radius: 4.5,
+  pointRadius: function(_) {
+    return this._radius = _, this;
+  },
+  polygonStart: function() {
+    this._line = 0;
+  },
+  polygonEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (this._line === 0) this._context.closePath();
+    this._point = NaN;
+  },
+  point: function(x, y) {
+    switch (this._point) {
+      case 0: {
+        this._context.moveTo(x, y);
+        this._point = 1;
+        break;
+      }
+      case 1: {
+        this._context.lineTo(x, y);
+        break;
+      }
+      default: {
+        this._context.moveTo(x + this._radius, y);
+        this._context.arc(x, y, this._radius, 0, tau$5);
+        break;
+      }
+    }
+  },
+  result: noop$4
+};
+
+var lengthSum$3 = adder$1();
+var lengthRing$1;
+var x00$5;
+var y00$5;
+var x0$9;
+var y0$9;
+
+var lengthStream$3 = {
+  point: noop$4,
+  lineStart: function() {
+    lengthStream$3.point = lengthPointFirst$3;
+  },
+  lineEnd: function() {
+    if (lengthRing$1) lengthPoint$3(x00$5, y00$5);
+    lengthStream$3.point = noop$4;
+  },
+  polygonStart: function() {
+    lengthRing$1 = true;
+  },
+  polygonEnd: function() {
+    lengthRing$1 = null;
+  },
+  result: function() {
+    var length = +lengthSum$3;
+    lengthSum$3.reset();
+    return length;
+  }
+};
+
+function lengthPointFirst$3(x, y) {
+  lengthStream$3.point = lengthPoint$3;
+  x00$5 = x0$9 = x, y00$5 = y0$9 = y;
+}
+
+function lengthPoint$3(x, y) {
+  x0$9 -= x, y0$9 -= y;
+  lengthSum$3.add(sqrt$4(x0$9 * x0$9 + y0$9 * y0$9));
+  x0$9 = x, y0$9 = y;
+}
+
+function PathString$1() {
+  this._string = [];
+}
+
+PathString$1.prototype = {
+  _radius: 4.5,
+  _circle: circle$4(4.5),
+  pointRadius: function(_) {
+    if ((_ = +_) !== this._radius) this._radius = _, this._circle = null;
+    return this;
+  },
+  polygonStart: function() {
+    this._line = 0;
+  },
+  polygonEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (this._line === 0) this._string.push("Z");
+    this._point = NaN;
+  },
+  point: function(x, y) {
+    switch (this._point) {
+      case 0: {
+        this._string.push("M", x, ",", y);
+        this._point = 1;
+        break;
+      }
+      case 1: {
+        this._string.push("L", x, ",", y);
+        break;
+      }
+      default: {
+        if (this._circle == null) this._circle = circle$4(this._radius);
+        this._string.push("M", x, ",", y, this._circle);
+        break;
+      }
+    }
+  },
+  result: function() {
+    if (this._string.length) {
+      var result = this._string.join("");
+      this._string = [];
+      return result;
+    } else {
+      return null;
+    }
+  }
+};
+
+function circle$4(radius) {
+  return "m0," + radius
+      + "a" + radius + "," + radius + " 0 1,1 0," + -2 * radius
+      + "a" + radius + "," + radius + " 0 1,1 0," + 2 * radius
+      + "z";
+}
+
+var clip$1 = function(pointVisible, clipLine, interpolate, start) {
+  return function(rotate, sink) {
+    var line = clipLine(sink),
+        rotatedStart = rotate.invert(start[0], start[1]),
+        ringBuffer = clipBuffer$1(),
+        ringSink = clipLine(ringBuffer),
+        polygonStarted = false,
+        polygon,
+        segments,
+        ring;
+
+    var clip = {
+      point: point,
+      lineStart: lineStart,
+      lineEnd: lineEnd,
+      polygonStart: function() {
+        clip.point = pointRing;
+        clip.lineStart = ringStart;
+        clip.lineEnd = ringEnd;
+        segments = [];
+        polygon = [];
+      },
+      polygonEnd: function() {
+        clip.point = point;
+        clip.lineStart = lineStart;
+        clip.lineEnd = lineEnd;
+        segments = merge$2(segments);
+        var startInside = polygonContains$1(polygon, rotatedStart);
+        if (segments.length) {
+          if (!polygonStarted) sink.polygonStart(), polygonStarted = true;
+          clipPolygon$1(segments, compareIntersection$1, startInside, interpolate, sink);
+        } else if (startInside) {
+          if (!polygonStarted) sink.polygonStart(), polygonStarted = true;
+          sink.lineStart();
+          interpolate(null, null, 1, sink);
+          sink.lineEnd();
+        }
+        if (polygonStarted) sink.polygonEnd(), polygonStarted = false;
+        segments = polygon = null;
+      },
+      sphere: function() {
+        sink.polygonStart();
+        sink.lineStart();
+        interpolate(null, null, 1, sink);
+        sink.lineEnd();
+        sink.polygonEnd();
+      }
+    };
+
+    function point(lambda, phi) {
+      var point = rotate(lambda, phi);
+      if (pointVisible(lambda = point[0], phi = point[1])) sink.point(lambda, phi);
+    }
+
+    function pointLine(lambda, phi) {
+      var point = rotate(lambda, phi);
+      line.point(point[0], point[1]);
+    }
+
+    function lineStart() {
+      clip.point = pointLine;
+      line.lineStart();
+    }
+
+    function lineEnd() {
+      clip.point = point;
+      line.lineEnd();
+    }
+
+    function pointRing(lambda, phi) {
+      ring.push([lambda, phi]);
+      var point = rotate(lambda, phi);
+      ringSink.point(point[0], point[1]);
+    }
+
+    function ringStart() {
+      ringSink.lineStart();
+      ring = [];
+    }
+
+    function ringEnd() {
+      pointRing(ring[0][0], ring[0][1]);
+      ringSink.lineEnd();
+
+      var clean = ringSink.clean(),
+          ringSegments = ringBuffer.result(),
+          i, n = ringSegments.length, m,
+          segment,
+          point;
+
+      ring.pop();
+      polygon.push(ring);
+      ring = null;
+
+      if (!n) return;
+
+      // No intersections.
+      if (clean & 1) {
+        segment = ringSegments[0];
+        if ((m = segment.length - 1) > 0) {
+          if (!polygonStarted) sink.polygonStart(), polygonStarted = true;
+          sink.lineStart();
+          for (i = 0; i < m; ++i) sink.point((point = segment[i])[0], point[1]);
+          sink.lineEnd();
+        }
+        return;
+      }
+
+      // Rejoin connected segments.
+      // TODO reuse ringBuffer.rejoin()?
+      if (n > 1 && clean & 2) ringSegments.push(ringSegments.pop().concat(ringSegments.shift()));
+
+      segments.push(ringSegments.filter(validSegment$1));
+    }
+
+    return clip;
+  };
+};
+
+function validSegment$1(segment) {
+  return segment.length > 1;
+}
+
+// Intersections are sorted along the clip edge. For both antimeridian cutting
+// and circle clipping, the same comparison is used.
+function compareIntersection$1(a, b) {
+  return ((a = a.x)[0] < 0 ? a[1] - halfPi$4 - epsilon$5 : halfPi$4 - a[1])
+       - ((b = b.x)[0] < 0 ? b[1] - halfPi$4 - epsilon$5 : halfPi$4 - b[1]);
+}
+
+var clipAntimeridian$1 = clip$1(
+  function() { return true; },
+  clipAntimeridianLine$1,
+  clipAntimeridianInterpolate$1,
+  [-pi$5, -halfPi$4]
+);
+
+// Takes a line and cuts into visible segments. Return values: 0 - there were
+// intersections or the line was empty; 1 - no intersections; 2 - there were
+// intersections, and the first and last segments should be rejoined.
+function clipAntimeridianLine$1(stream) {
+  var lambda0 = NaN,
+      phi0 = NaN,
+      sign0 = NaN,
+      clean; // no intersections
+
+  return {
+    lineStart: function() {
+      stream.lineStart();
+      clean = 1;
+    },
+    point: function(lambda1, phi1) {
+      var sign1 = lambda1 > 0 ? pi$5 : -pi$5,
+          delta = abs$2(lambda1 - lambda0);
+      if (abs$2(delta - pi$5) < epsilon$5) { // line crosses a pole
+        stream.point(lambda0, phi0 = (phi0 + phi1) / 2 > 0 ? halfPi$4 : -halfPi$4);
+        stream.point(sign0, phi0);
+        stream.lineEnd();
+        stream.lineStart();
+        stream.point(sign1, phi0);
+        stream.point(lambda1, phi0);
+        clean = 0;
+      } else if (sign0 !== sign1 && delta >= pi$5) { // line crosses antimeridian
+        if (abs$2(lambda0 - sign0) < epsilon$5) lambda0 -= sign0 * epsilon$5; // handle degeneracies
+        if (abs$2(lambda1 - sign1) < epsilon$5) lambda1 -= sign1 * epsilon$5;
+        phi0 = clipAntimeridianIntersect$1(lambda0, phi0, lambda1, phi1);
+        stream.point(sign0, phi0);
+        stream.lineEnd();
+        stream.lineStart();
+        stream.point(sign1, phi0);
+        clean = 0;
+      }
+      stream.point(lambda0 = lambda1, phi0 = phi1);
+      sign0 = sign1;
+    },
+    lineEnd: function() {
+      stream.lineEnd();
+      lambda0 = phi0 = NaN;
+    },
+    clean: function() {
+      return 2 - clean; // if intersections, rejoin first and last segments
+    }
+  };
+}
+
+function clipAntimeridianIntersect$1(lambda0, phi0, lambda1, phi1) {
+  var cosPhi0,
+      cosPhi1,
+      sinLambda0Lambda1 = sin$3(lambda0 - lambda1);
+  return abs$2(sinLambda0Lambda1) > epsilon$5
+      ? atan$1((sin$3(phi0) * (cosPhi1 = cos$3(phi1)) * sin$3(lambda1)
+          - sin$3(phi1) * (cosPhi0 = cos$3(phi0)) * sin$3(lambda0))
+          / (cosPhi0 * cosPhi1 * sinLambda0Lambda1))
+      : (phi0 + phi1) / 2;
+}
+
+function clipAntimeridianInterpolate$1(from, to, direction, stream) {
+  var phi;
+  if (from == null) {
+    phi = direction * halfPi$4;
+    stream.point(-pi$5, phi);
+    stream.point(0, phi);
+    stream.point(pi$5, phi);
+    stream.point(pi$5, 0);
+    stream.point(pi$5, -phi);
+    stream.point(0, -phi);
+    stream.point(-pi$5, -phi);
+    stream.point(-pi$5, 0);
+    stream.point(-pi$5, phi);
+  } else if (abs$2(from[0] - to[0]) > epsilon$5) {
+    var lambda = from[0] < to[0] ? pi$5 : -pi$5;
+    phi = direction * lambda / 2;
+    stream.point(-lambda, phi);
+    stream.point(0, phi);
+    stream.point(lambda, phi);
+  } else {
+    stream.point(to[0], to[1]);
+  }
+}
+
+var clipCircle$1 = function(radius, delta) {
+  var cr = cos$3(radius),
+      smallRadius = cr > 0,
+      notHemisphere = abs$2(cr) > epsilon$5; // TODO optimise for this common case
+
+  function interpolate(from, to, direction, stream) {
+    circleStream$1(stream, radius, delta, direction, from, to);
+  }
+
+  function visible(lambda, phi) {
+    return cos$3(lambda) * cos$3(phi) > cr;
+  }
+
+  // Takes a line and cuts into visible segments. Return values used for polygon
+  // clipping: 0 - there were intersections or the line was empty; 1 - no
+  // intersections 2 - there were intersections, and the first and last segments
+  // should be rejoined.
+  function clipLine(stream) {
+    var point0, // previous point
+        c0, // code for previous point
+        v0, // visibility of previous point
+        v00, // visibility of first point
+        clean; // no intersections
+    return {
+      lineStart: function() {
+        v00 = v0 = false;
+        clean = 1;
+      },
+      point: function(lambda, phi) {
+        var point1 = [lambda, phi],
+            point2,
+            v = visible(lambda, phi),
+            c = smallRadius
+              ? v ? 0 : code(lambda, phi)
+              : v ? code(lambda + (lambda < 0 ? pi$5 : -pi$5), phi) : 0;
+        if (!point0 && (v00 = v0 = v)) stream.lineStart();
+        // Handle degeneracies.
+        // TODO ignore if not clipping polygons.
+        if (v !== v0) {
+          point2 = intersect(point0, point1);
+          if (!point2 || pointEqual$1(point0, point2) || pointEqual$1(point1, point2)) {
+            point1[0] += epsilon$5;
+            point1[1] += epsilon$5;
+            v = visible(point1[0], point1[1]);
+          }
+        }
+        if (v !== v0) {
+          clean = 0;
+          if (v) {
+            // outside going in
+            stream.lineStart();
+            point2 = intersect(point1, point0);
+            stream.point(point2[0], point2[1]);
+          } else {
+            // inside going out
+            point2 = intersect(point0, point1);
+            stream.point(point2[0], point2[1]);
+            stream.lineEnd();
+          }
+          point0 = point2;
+        } else if (notHemisphere && point0 && smallRadius ^ v) {
+          var t;
+          // If the codes for two points are different, or are both zero,
+          // and there this segment intersects with the small circle.
+          if (!(c & c0) && (t = intersect(point1, point0, true))) {
+            clean = 0;
+            if (smallRadius) {
+              stream.lineStart();
+              stream.point(t[0][0], t[0][1]);
+              stream.point(t[1][0], t[1][1]);
+              stream.lineEnd();
+            } else {
+              stream.point(t[1][0], t[1][1]);
+              stream.lineEnd();
+              stream.lineStart();
+              stream.point(t[0][0], t[0][1]);
+            }
+          }
+        }
+        if (v && (!point0 || !pointEqual$1(point0, point1))) {
+          stream.point(point1[0], point1[1]);
+        }
+        point0 = point1, v0 = v, c0 = c;
+      },
+      lineEnd: function() {
+        if (v0) stream.lineEnd();
+        point0 = null;
+      },
+      // Rejoin first and last segments if there were intersections and the first
+      // and last points were visible.
+      clean: function() {
+        return clean | ((v00 && v0) << 1);
+      }
+    };
+  }
+
+  // Intersects the great circle between a and b with the clip circle.
+  function intersect(a, b, two) {
+    var pa = cartesian$1(a),
+        pb = cartesian$1(b);
+
+    // We have two planes, n1.p = d1 and n2.p = d2.
+    // Find intersection line p(t) = c1 n1 + c2 n2 + t (n1 ⨯ n2).
+    var n1 = [1, 0, 0], // normal
+        n2 = cartesianCross$1(pa, pb),
+        n2n2 = cartesianDot$1(n2, n2),
+        n1n2 = n2[0], // cartesianDot(n1, n2),
+        determinant = n2n2 - n1n2 * n1n2;
+
+    // Two polar points.
+    if (!determinant) return !two && a;
+
+    var c1 =  cr * n2n2 / determinant,
+        c2 = -cr * n1n2 / determinant,
+        n1xn2 = cartesianCross$1(n1, n2),
+        A = cartesianScale$1(n1, c1),
+        B = cartesianScale$1(n2, c2);
+    cartesianAddInPlace$1(A, B);
+
+    // Solve |p(t)|^2 = 1.
+    var u = n1xn2,
+        w = cartesianDot$1(A, u),
+        uu = cartesianDot$1(u, u),
+        t2 = w * w - uu * (cartesianDot$1(A, A) - 1);
+
+    if (t2 < 0) return;
+
+    var t = sqrt$4(t2),
+        q = cartesianScale$1(u, (-w - t) / uu);
+    cartesianAddInPlace$1(q, A);
+    q = spherical$1(q);
+
+    if (!two) return q;
+
+    // Two intersection points.
+    var lambda0 = a[0],
+        lambda1 = b[0],
+        phi0 = a[1],
+        phi1 = b[1],
+        z;
+
+    if (lambda1 < lambda0) z = lambda0, lambda0 = lambda1, lambda1 = z;
+
+    var delta = lambda1 - lambda0,
+        polar = abs$2(delta - pi$5) < epsilon$5,
+        meridian = polar || delta < epsilon$5;
+
+    if (!polar && phi1 < phi0) z = phi0, phi0 = phi1, phi1 = z;
+
+    // Check that the first point is between a and b.
+    if (meridian
+        ? polar
+          ? phi0 + phi1 > 0 ^ q[1] < (abs$2(q[0] - lambda0) < epsilon$5 ? phi0 : phi1)
+          : phi0 <= q[1] && q[1] <= phi1
+        : delta > pi$5 ^ (lambda0 <= q[0] && q[0] <= lambda1)) {
+      var q1 = cartesianScale$1(u, (-w + t) / uu);
+      cartesianAddInPlace$1(q1, A);
+      return [q, spherical$1(q1)];
+    }
+  }
+
+  // Generates a 4-bit vector representing the location of a point relative to
+  // the small circle's bounding box.
+  function code(lambda, phi) {
+    var r = smallRadius ? radius : pi$5 - radius,
+        code = 0;
+    if (lambda < -r) code |= 1; // left
+    else if (lambda > r) code |= 2; // right
+    if (phi < -r) code |= 4; // below
+    else if (phi > r) code |= 8; // above
+    return code;
+  }
+
+  return clip$1(visible, clipLine, interpolate, smallRadius ? [0, -radius] : [-pi$5, radius - pi$5]);
+};
+
+function transformer$1(methods) {
+  return function(stream) {
+    var s = new TransformStream$1;
+    for (var key in methods) s[key] = methods[key];
+    s.stream = stream;
+    return s;
+  };
+}
+
+function TransformStream$1() {}
+
+TransformStream$1.prototype = {
+  constructor: TransformStream$1,
+  point: function(x, y) { this.stream.point(x, y); },
+  sphere: function() { this.stream.sphere(); },
+  lineStart: function() { this.stream.lineStart(); },
+  lineEnd: function() { this.stream.lineEnd(); },
+  polygonStart: function() { this.stream.polygonStart(); },
+  polygonEnd: function() { this.stream.polygonEnd(); }
+};
+
+function fitExtent$1(projection, extent, object) {
+  var w = extent[1][0] - extent[0][0],
+      h = extent[1][1] - extent[0][1],
+      clip = projection.clipExtent && projection.clipExtent();
+
+  projection
+      .scale(150)
+      .translate([0, 0]);
+
+  if (clip != null) projection.clipExtent(null);
+
+  geoStream$1(object, projection.stream(boundsStream$4));
+
+  var b = boundsStream$4.result(),
+      k = Math.min(w / (b[1][0] - b[0][0]), h / (b[1][1] - b[0][1])),
+      x = +extent[0][0] + (w - k * (b[1][0] + b[0][0])) / 2,
+      y = +extent[0][1] + (h - k * (b[1][1] + b[0][1])) / 2;
+
+  if (clip != null) projection.clipExtent(clip);
+
+  return projection
+      .scale(k * 150)
+      .translate([x, y]);
+}
+
+function fitSize$1(projection, size, object) {
+  return fitExtent$1(projection, [[0, 0], size], object);
+}
+
+var maxDepth$1 = 16;
+var cosMinDistance$1 = cos$3(30 * radians$1); // cos(minimum angular distance)
+
+var resample$2 = function(project, delta2) {
+  return +delta2 ? resample$3(project, delta2) : resampleNone$1(project);
+};
+
+function resampleNone$1(project) {
+  return transformer$1({
+    point: function(x, y) {
+      x = project(x, y);
+      this.stream.point(x[0], x[1]);
+    }
+  });
+}
+
+function resample$3(project, delta2) {
+
+  function resampleLineTo(x0, y0, lambda0, a0, b0, c0, x1, y1, lambda1, a1, b1, c1, depth, stream) {
+    var dx = x1 - x0,
+        dy = y1 - y0,
+        d2 = dx * dx + dy * dy;
+    if (d2 > 4 * delta2 && depth--) {
+      var a = a0 + a1,
+          b = b0 + b1,
+          c = c0 + c1,
+          m = sqrt$4(a * a + b * b + c * c),
+          phi2 = asin$2(c /= m),
+          lambda2 = abs$2(abs$2(c) - 1) < epsilon$5 || abs$2(lambda0 - lambda1) < epsilon$5 ? (lambda0 + lambda1) / 2 : atan2$2(b, a),
+          p = project(lambda2, phi2),
+          x2 = p[0],
+          y2 = p[1],
+          dx2 = x2 - x0,
+          dy2 = y2 - y0,
+          dz = dy * dx2 - dx * dy2;
+      if (dz * dz / d2 > delta2 // perpendicular projected distance
+          || abs$2((dx * dx2 + dy * dy2) / d2 - 0.5) > 0.3 // midpoint close to an end
+          || a0 * a1 + b0 * b1 + c0 * c1 < cosMinDistance$1) { // angular distance
+        resampleLineTo(x0, y0, lambda0, a0, b0, c0, x2, y2, lambda2, a /= m, b /= m, c, depth, stream);
+        stream.point(x2, y2);
+        resampleLineTo(x2, y2, lambda2, a, b, c, x1, y1, lambda1, a1, b1, c1, depth, stream);
+      }
+    }
+  }
+  return function(stream) {
+    var lambda00, x00, y00, a00, b00, c00, // first point
+        lambda0, x0, y0, a0, b0, c0; // previous point
+
+    var resampleStream = {
+      point: point,
+      lineStart: lineStart,
+      lineEnd: lineEnd,
+      polygonStart: function() { stream.polygonStart(); resampleStream.lineStart = ringStart; },
+      polygonEnd: function() { stream.polygonEnd(); resampleStream.lineStart = lineStart; }
+    };
+
+    function point(x, y) {
+      x = project(x, y);
+      stream.point(x[0], x[1]);
+    }
+
+    function lineStart() {
+      x0 = NaN;
+      resampleStream.point = linePoint;
+      stream.lineStart();
+    }
+
+    function linePoint(lambda, phi) {
+      var c = cartesian$1([lambda, phi]), p = project(lambda, phi);
+      resampleLineTo(x0, y0, lambda0, a0, b0, c0, x0 = p[0], y0 = p[1], lambda0 = lambda, a0 = c[0], b0 = c[1], c0 = c[2], maxDepth$1, stream);
+      stream.point(x0, y0);
+    }
+
+    function lineEnd() {
+      resampleStream.point = point;
+      stream.lineEnd();
+    }
+
+    function ringStart() {
+      lineStart();
+      resampleStream.point = ringPoint;
+      resampleStream.lineEnd = ringEnd;
+    }
+
+    function ringPoint(lambda, phi) {
+      linePoint(lambda00 = lambda, phi), x00 = x0, y00 = y0, a00 = a0, b00 = b0, c00 = c0;
+      resampleStream.point = linePoint;
+    }
+
+    function ringEnd() {
+      resampleLineTo(x0, y0, lambda0, a0, b0, c0, x00, y00, lambda00, a00, b00, c00, maxDepth$1, stream);
+      resampleStream.lineEnd = lineEnd;
+      lineEnd();
+    }
+
+    return resampleStream;
+  };
+}
+
+var transformRadians$1 = transformer$1({
+  point: function(x, y) {
+    this.stream.point(x * radians$1, y * radians$1);
+  }
+});
+
+function projection$1(project) {
+  return projectionMutator$1(function() { return project; })();
+}
+
+function projectionMutator$1(projectAt) {
+  var project,
+      k = 150, // scale
+      x = 480, y = 250, // translate
+      dx, dy, lambda = 0, phi = 0, // center
+      deltaLambda = 0, deltaPhi = 0, deltaGamma = 0, rotate, projectRotate, // rotate
+      theta = null, preclip = clipAntimeridian$1, // clip angle
+      x0 = null, y0, x1, y1, postclip = identity$14, // clip extent
+      delta2 = 0.5, projectResample = resample$2(projectTransform, delta2), // precision
+      cache,
+      cacheStream;
+
+  function projection(point) {
+    point = projectRotate(point[0] * radians$1, point[1] * radians$1);
+    return [point[0] * k + dx, dy - point[1] * k];
+  }
+
+  function invert(point) {
+    point = projectRotate.invert((point[0] - dx) / k, (dy - point[1]) / k);
+    return point && [point[0] * degrees$2, point[1] * degrees$2];
+  }
+
+  function projectTransform(x, y) {
+    return x = project(x, y), [x[0] * k + dx, dy - x[1] * k];
+  }
+
+  projection.stream = function(stream) {
+    return cache && cacheStream === stream ? cache : cache = transformRadians$1(preclip(rotate, projectResample(postclip(cacheStream = stream))));
+  };
+
+  projection.clipAngle = function(_) {
+    return arguments.length ? (preclip = +_ ? clipCircle$1(theta = _ * radians$1, 6 * radians$1) : (theta = null, clipAntimeridian$1), reset()) : theta * degrees$2;
+  };
+
+  projection.clipExtent = function(_) {
+    return arguments.length ? (postclip = _ == null ? (x0 = y0 = x1 = y1 = null, identity$14) : clipExtent$1(x0 = +_[0][0], y0 = +_[0][1], x1 = +_[1][0], y1 = +_[1][1]), reset()) : x0 == null ? null : [[x0, y0], [x1, y1]];
+  };
+
+  projection.scale = function(_) {
+    return arguments.length ? (k = +_, recenter()) : k;
+  };
+
+  projection.translate = function(_) {
+    return arguments.length ? (x = +_[0], y = +_[1], recenter()) : [x, y];
+  };
+
+  projection.center = function(_) {
+    return arguments.length ? (lambda = _[0] % 360 * radians$1, phi = _[1] % 360 * radians$1, recenter()) : [lambda * degrees$2, phi * degrees$2];
+  };
+
+  projection.rotate = function(_) {
+    return arguments.length ? (deltaLambda = _[0] % 360 * radians$1, deltaPhi = _[1] % 360 * radians$1, deltaGamma = _.length > 2 ? _[2] % 360 * radians$1 : 0, recenter()) : [deltaLambda * degrees$2, deltaPhi * degrees$2, deltaGamma * degrees$2];
+  };
+
+  projection.precision = function(_) {
+    return arguments.length ? (projectResample = resample$2(projectTransform, delta2 = _ * _), reset()) : sqrt$4(delta2);
+  };
+
+  projection.fitExtent = function(extent, object) {
+    return fitExtent$1(projection, extent, object);
+  };
+
+  projection.fitSize = function(size, object) {
+    return fitSize$1(projection, size, object);
+  };
+
+  function recenter() {
+    projectRotate = compose$1(rotate = rotateRadians$1(deltaLambda, deltaPhi, deltaGamma), project);
+    var center = project(lambda, phi);
+    dx = x - center[0] * k;
+    dy = y + center[1] * k;
+    return reset();
+  }
+
+  function reset() {
+    cache = cacheStream = null;
+    return projection;
+  }
+
+  return function() {
+    project = projectAt.apply(this, arguments);
+    projection.invert = project.invert && invert;
+    return recenter();
+  };
+}
+
+function conicProjection$1(projectAt) {
+  var phi0 = 0,
+      phi1 = pi$5 / 3,
+      m = projectionMutator$1(projectAt),
+      p = m(phi0, phi1);
+
+  p.parallels = function(_) {
+    return arguments.length ? m(phi0 = _[0] * radians$1, phi1 = _[1] * radians$1) : [phi0 * degrees$2, phi1 * degrees$2];
+  };
+
+  return p;
+}
+
+function cylindricalEqualAreaRaw$1(phi0) {
+  var cosPhi0 = cos$3(phi0);
+
+  function forward(lambda, phi) {
+    return [lambda * cosPhi0, sin$3(phi) / cosPhi0];
+  }
+
+  forward.invert = function(x, y) {
+    return [x / cosPhi0, asin$2(y * cosPhi0)];
+  };
+
+  return forward;
+}
+
+function conicEqualAreaRaw$1(y0, y1) {
+  var sy0 = sin$3(y0), n = (sy0 + sin$3(y1)) / 2;
+
+  // Are the parallels symmetrical around the Equator?
+  if (abs$2(n) < epsilon$5) return cylindricalEqualAreaRaw$1(y0);
+
+  var c = 1 + sy0 * (2 * n - sy0), r0 = sqrt$4(c) / n;
+
+  function project(x, y) {
+    var r = sqrt$4(c - 2 * n * sin$3(y)) / n;
+    return [r * sin$3(x *= n), r0 - r * cos$3(x)];
+  }
+
+  project.invert = function(x, y) {
+    var r0y = r0 - y;
+    return [atan2$2(x, abs$2(r0y)) / n * sign$2(r0y), asin$2((c - (x * x + r0y * r0y) * n * n) / (2 * n))];
+  };
+
+  return project;
+}
+
+var conicEqualArea$1 = function() {
+  return conicProjection$1(conicEqualAreaRaw$1)
+      .scale(155.424)
+      .center([0, 33.6442]);
+};
+
+var albers$1 = function() {
+  return conicEqualArea$1()
+      .parallels([29.5, 45.5])
+      .scale(1070)
+      .translate([480, 250])
+      .rotate([96, 0])
+      .center([-0.6, 38.7]);
+};
+
+// The projections must have mutually exclusive clip regions on the sphere,
+// as this will avoid emitting interleaving lines and polygons.
+function multiplex$1(streams) {
+  var n = streams.length;
+  return {
+    point: function(x, y) { var i = -1; while (++i < n) streams[i].point(x, y); },
+    sphere: function() { var i = -1; while (++i < n) streams[i].sphere(); },
+    lineStart: function() { var i = -1; while (++i < n) streams[i].lineStart(); },
+    lineEnd: function() { var i = -1; while (++i < n) streams[i].lineEnd(); },
+    polygonStart: function() { var i = -1; while (++i < n) streams[i].polygonStart(); },
+    polygonEnd: function() { var i = -1; while (++i < n) streams[i].polygonEnd(); }
+  };
+}
+
+// A composite projection for the United States, configured by default for
+// 960×500. The projection also works quite well at 960×600 if you change the
+// scale to 1285 and adjust the translate accordingly. The set of standard
+// parallels for each region comes from USGS, which is published here:
+// http://egsc.usgs.gov/isb/pubs/MapProjections/projections.html#albers
+
+function azimuthalRaw$1(scale) {
+  return function(x, y) {
+    var cx = cos$3(x),
+        cy = cos$3(y),
+        k = scale(cx * cy);
+    return [
+      k * cy * sin$3(x),
+      k * sin$3(y)
+    ];
+  }
+}
+
+function azimuthalInvert$1(angle) {
+  return function(x, y) {
+    var z = sqrt$4(x * x + y * y),
+        c = angle(z),
+        sc = sin$3(c),
+        cc = cos$3(c);
+    return [
+      atan2$2(x * sc, z * cc),
+      asin$2(z && y * sc / z)
+    ];
+  }
+}
+
+var azimuthalEqualAreaRaw$1 = azimuthalRaw$1(function(cxcy) {
+  return sqrt$4(2 / (1 + cxcy));
+});
+
+azimuthalEqualAreaRaw$1.invert = azimuthalInvert$1(function(z) {
+  return 2 * asin$2(z / 2);
+});
+
+var azimuthalEquidistantRaw$1 = azimuthalRaw$1(function(c) {
+  return (c = acos$2(c)) && c / sin$3(c);
+});
+
+azimuthalEquidistantRaw$1.invert = azimuthalInvert$1(function(z) {
+  return z;
+});
+
+function mercatorRaw$1(lambda, phi) {
+  return [lambda, log$3(tan$1((halfPi$4 + phi) / 2))];
+}
+
+mercatorRaw$1.invert = function(x, y) {
+  return [x, 2 * atan$1(exp$1(y)) - halfPi$4];
+};
+
+function mercatorProjection$1(project) {
+  var m = projection$1(project),
+      center = m.center,
+      scale = m.scale,
+      translate = m.translate,
+      clipExtent = m.clipExtent,
+      x0 = null, y0, x1, y1; // clip extent
+
+  m.scale = function(_) {
+    return arguments.length ? (scale(_), reclip()) : scale();
+  };
+
+  m.translate = function(_) {
+    return arguments.length ? (translate(_), reclip()) : translate();
+  };
+
+  m.center = function(_) {
+    return arguments.length ? (center(_), reclip()) : center();
+  };
+
+  m.clipExtent = function(_) {
+    return arguments.length ? ((_ == null ? x0 = y0 = x1 = y1 = null : (x0 = +_[0][0], y0 = +_[0][1], x1 = +_[1][0], y1 = +_[1][1])), reclip()) : x0 == null ? null : [[x0, y0], [x1, y1]];
+  };
+
+  function reclip() {
+    var k = pi$5 * scale(),
+        t = m(rotation$1(m.rotate()).invert([0, 0]));
+    return clipExtent(x0 == null
+        ? [[t[0] - k, t[1] - k], [t[0] + k, t[1] + k]] : project === mercatorRaw$1
+        ? [[Math.max(t[0] - k, x0), y0], [Math.min(t[0] + k, x1), y1]]
+        : [[x0, Math.max(t[1] - k, y0)], [x1, Math.min(t[1] + k, y1)]]);
+  }
+
+  return reclip();
+}
+
+function tany$1(y) {
+  return tan$1((halfPi$4 + y) / 2);
+}
+
+function scaleTranslate$1(kx, ky, tx, ty) {
+  return kx === 1 && ky === 1 && tx === 0 && ty === 0 ? identity$14 : transformer$1({
+    point: function(x, y) {
+      this.stream.point(x * kx + tx, y * ky + ty);
+    }
+  });
+}
+
+function transverseMercatorRaw$1(lambda, phi) {
+  return [log$3(tan$1((halfPi$4 + phi) / 2)), -lambda];
+}
+
+transverseMercatorRaw$1.invert = function(x, y) {
+  return [-y, 2 * atan$1(exp$1(x)) - halfPi$4];
+};
+
+function defaultSeparation(a, b) {
+  return a.parent === b.parent ? 1 : 2;
+}
+
+function meanX(children) {
+  return children.reduce(meanXReduce, 0) / children.length;
+}
+
+function meanXReduce(x, c) {
+  return x + c.x;
+}
+
+function maxY(children) {
+  return 1 + children.reduce(maxYReduce, 0);
+}
+
+function maxYReduce(y, c) {
+  return Math.max(y, c.y);
+}
+
+function leafLeft(node) {
+  var children;
+  while (children = node.children) node = children[0];
+  return node;
+}
+
+function leafRight(node) {
+  var children;
+  while (children = node.children) node = children[children.length - 1];
+  return node;
+}
+
+function count(node) {
+  var sum = 0,
+      children = node.children,
+      i = children && children.length;
+  if (!i) sum = 1;
+  else while (--i >= 0) sum += children[i].value;
+  node.value = sum;
+}
+
+var node_count = function() {
+  return this.eachAfter(count);
+};
+
+var node_each = function(callback) {
+  var node = this, current, next = [node], children, i, n;
+  do {
+    current = next.reverse(), next = [];
+    while (node = current.pop()) {
+      callback(node), children = node.children;
+      if (children) for (i = 0, n = children.length; i < n; ++i) {
+        next.push(children[i]);
+      }
+    }
+  } while (next.length);
+  return this;
+};
+
+var node_eachBefore = function(callback) {
+  var node = this, nodes = [node], children, i;
+  while (node = nodes.pop()) {
+    callback(node), children = node.children;
+    if (children) for (i = children.length - 1; i >= 0; --i) {
+      nodes.push(children[i]);
+    }
+  }
+  return this;
+};
+
+var node_eachAfter = function(callback) {
+  var node = this, nodes = [node], next = [], children, i, n;
+  while (node = nodes.pop()) {
+    next.push(node), children = node.children;
+    if (children) for (i = 0, n = children.length; i < n; ++i) {
+      nodes.push(children[i]);
+    }
+  }
+  while (node = next.pop()) {
+    callback(node);
+  }
+  return this;
+};
+
+var node_sum = function(value) {
+  return this.eachAfter(function(node) {
+    var sum = +value(node.data) || 0,
+        children = node.children,
+        i = children && children.length;
+    while (--i >= 0) sum += children[i].value;
+    node.value = sum;
+  });
+};
+
+var node_sort = function(compare) {
+  return this.eachBefore(function(node) {
+    if (node.children) {
+      node.children.sort(compare);
+    }
+  });
+};
+
+var node_path = function(end) {
+  var start = this,
+      ancestor = leastCommonAncestor(start, end),
+      nodes = [start];
+  while (start !== ancestor) {
+    start = start.parent;
+    nodes.push(start);
+  }
+  var k = nodes.length;
+  while (end !== ancestor) {
+    nodes.splice(k, 0, end);
+    end = end.parent;
+  }
+  return nodes;
+};
+
+function leastCommonAncestor(a, b) {
+  if (a === b) return a;
+  var aNodes = a.ancestors(),
+      bNodes = b.ancestors(),
+      c = null;
+  a = aNodes.pop();
+  b = bNodes.pop();
+  while (a === b) {
+    c = a;
+    a = aNodes.pop();
+    b = bNodes.pop();
+  }
+  return c;
+}
+
+var node_ancestors = function() {
+  var node = this, nodes = [node];
+  while (node = node.parent) {
+    nodes.push(node);
+  }
+  return nodes;
+};
+
+var node_descendants = function() {
+  var nodes = [];
+  this.each(function(node) {
+    nodes.push(node);
+  });
+  return nodes;
+};
+
+var node_leaves = function() {
+  var leaves = [];
+  this.eachBefore(function(node) {
+    if (!node.children) {
+      leaves.push(node);
+    }
+  });
+  return leaves;
+};
+
+var node_links = function() {
+  var root = this, links = [];
+  root.each(function(node) {
+    if (node !== root) { // Don’t include the root’s parent, if any.
+      links.push({source: node.parent, target: node});
+    }
+  });
+  return links;
+};
+
+function hierarchy(data, children) {
+  var root = new Node(data),
+      valued = +data.value && (root.value = data.value),
+      node,
+      nodes = [root],
+      child,
+      childs,
+      i,
+      n;
+
+  if (children == null) children = defaultChildren;
+
+  while (node = nodes.pop()) {
+    if (valued) node.value = +node.data.value;
+    if ((childs = children(node.data)) && (n = childs.length)) {
+      node.children = new Array(n);
+      for (i = n - 1; i >= 0; --i) {
+        nodes.push(child = node.children[i] = new Node(childs[i]));
+        child.parent = node;
+        child.depth = node.depth + 1;
+      }
+    }
+  }
+
+  return root.eachBefore(computeHeight);
+}
+
+function node_copy() {
+  return hierarchy(this).eachBefore(copyData);
+}
+
+function defaultChildren(d) {
+  return d.children;
+}
+
+function copyData(node) {
+  node.data = node.data.data;
+}
+
+function computeHeight(node) {
+  var height = 0;
+  do node.height = height;
+  while ((node = node.parent) && (node.height < ++height));
+}
+
+function Node(data) {
+  this.data = data;
+  this.depth =
+  this.height = 0;
+  this.parent = null;
+}
+
+Node.prototype = hierarchy.prototype = {
+  constructor: Node,
+  count: node_count,
+  each: node_each,
+  eachAfter: node_eachAfter,
+  eachBefore: node_eachBefore,
+  sum: node_sum,
+  sort: node_sort,
+  path: node_path,
+  ancestors: node_ancestors,
+  descendants: node_descendants,
+  leaves: node_leaves,
+  links: node_links,
+  copy: node_copy
+};
+
+function Node$2(value) {
+  this._ = value;
+  this.next = null;
+}
+
+var shuffle$3 = function(array) {
+  var i,
+      n = (array = array.slice()).length,
+      head = null,
+      node = head;
+
+  while (n) {
+    var next = new Node$2(array[n - 1]);
+    if (node) node = node.next = next;
+    else node = head = next;
+    array[i] = array[--n];
+  }
+
+  return {
+    head: head,
+    tail: node
+  };
+};
+
+var enclose = function(circles) {
+  return encloseN(shuffle$3(circles), []);
+};
+
+function encloses(a, b) {
+  var dx = b.x - a.x,
+      dy = b.y - a.y,
+      dr = a.r - b.r;
+  return dr * dr + 1e-6 > dx * dx + dy * dy;
+}
+
+// Returns the smallest circle that contains circles L and intersects circles B.
+function encloseN(L, B) {
+  var circle,
+      l0 = null,
+      l1 = L.head,
+      l2,
+      p1;
+
+  switch (B.length) {
+    case 1: circle = enclose1(B[0]); break;
+    case 2: circle = enclose2(B[0], B[1]); break;
+    case 3: circle = enclose3(B[0], B[1], B[2]); break;
+  }
+
+  while (l1) {
+    p1 = l1._, l2 = l1.next;
+    if (!circle || !encloses(circle, p1)) {
+
+      // Temporarily truncate L before l1.
+      if (l0) L.tail = l0, l0.next = null;
+      else L.head = L.tail = null;
+
+      B.push(p1);
+      circle = encloseN(L, B); // Note: reorders L!
+      B.pop();
+
+      // Move l1 to the front of L and reconnect the truncated list L.
+      if (L.head) l1.next = L.head, L.head = l1;
+      else l1.next = null, L.head = L.tail = l1;
+      l0 = L.tail, l0.next = l2;
+
+    } else {
+      l0 = l1;
+    }
+    l1 = l2;
+  }
+
+  L.tail = l0;
+  return circle;
+}
+
+function enclose1(a) {
+  return {
+    x: a.x,
+    y: a.y,
+    r: a.r
+  };
+}
+
+function enclose2(a, b) {
+  var x1 = a.x, y1 = a.y, r1 = a.r,
+      x2 = b.x, y2 = b.y, r2 = b.r,
+      x21 = x2 - x1, y21 = y2 - y1, r21 = r2 - r1,
+      l = Math.sqrt(x21 * x21 + y21 * y21);
+  return {
+    x: (x1 + x2 + x21 / l * r21) / 2,
+    y: (y1 + y2 + y21 / l * r21) / 2,
+    r: (l + r1 + r2) / 2
+  };
+}
+
+function enclose3(a, b, c) {
+  var x1 = a.x, y1 = a.y, r1 = a.r,
+      x2 = b.x, y2 = b.y, r2 = b.r,
+      x3 = c.x, y3 = c.y, r3 = c.r,
+      a2 = 2 * (x1 - x2),
+      b2 = 2 * (y1 - y2),
+      c2 = 2 * (r2 - r1),
+      d2 = x1 * x1 + y1 * y1 - r1 * r1 - x2 * x2 - y2 * y2 + r2 * r2,
+      a3 = 2 * (x1 - x3),
+      b3 = 2 * (y1 - y3),
+      c3 = 2 * (r3 - r1),
+      d3 = x1 * x1 + y1 * y1 - r1 * r1 - x3 * x3 - y3 * y3 + r3 * r3,
+      ab = a3 * b2 - a2 * b3,
+      xa = (b2 * d3 - b3 * d2) / ab - x1,
+      xb = (b3 * c2 - b2 * c3) / ab,
+      ya = (a3 * d2 - a2 * d3) / ab - y1,
+      yb = (a2 * c3 - a3 * c2) / ab,
+      A = xb * xb + yb * yb - 1,
+      B = 2 * (xa * xb + ya * yb + r1),
+      C = xa * xa + ya * ya - r1 * r1,
+      r = (-B - Math.sqrt(B * B - 4 * A * C)) / (2 * A);
+  return {
+    x: xa + xb * r + x1,
+    y: ya + yb * r + y1,
+    r: r
+  };
+}
+
+function place(a, b, c) {
+  var ax = a.x,
+      ay = a.y,
+      da = b.r + c.r,
+      db = a.r + c.r,
+      dx = b.x - ax,
+      dy = b.y - ay,
+      dc = dx * dx + dy * dy;
+  if (dc) {
+    var x = 0.5 + ((db *= db) - (da *= da)) / (2 * dc),
+        y = Math.sqrt(Math.max(0, 2 * da * (db + dc) - (db -= dc) * db - da * da)) / (2 * dc);
+    c.x = ax + x * dx + y * dy;
+    c.y = ay + x * dy - y * dx;
+  } else {
+    c.x = ax + db;
+    c.y = ay;
+  }
+}
+
+function intersects(a, b) {
+  var dx = b.x - a.x,
+      dy = b.y - a.y,
+      dr = a.r + b.r;
+  return dr * dr - 1e-6 > dx * dx + dy * dy;
+}
+
+function distance2(node, x, y) {
+  var a = node._,
+      b = node.next._,
+      ab = a.r + b.r,
+      dx = (a.x * b.r + b.x * a.r) / ab - x,
+      dy = (a.y * b.r + b.y * a.r) / ab - y;
+  return dx * dx + dy * dy;
+}
+
+function Node$1(circle) {
+  this._ = circle;
+  this.next = null;
+  this.previous = null;
+}
+
+function packEnclose(circles) {
+  if (!(n = circles.length)) return 0;
+
+  var a, b, c, n;
+
+  // Place the first circle.
+  a = circles[0], a.x = 0, a.y = 0;
+  if (!(n > 1)) return a.r;
+
+  // Place the second circle.
+  b = circles[1], a.x = -b.r, b.x = a.r, b.y = 0;
+  if (!(n > 2)) return a.r + b.r;
+
+  // Place the third circle.
+  place(b, a, c = circles[2]);
+
+  // Initialize the weighted centroid.
+  var aa = a.r * a.r,
+      ba = b.r * b.r,
+      ca = c.r * c.r,
+      oa = aa + ba + ca,
+      ox = aa * a.x + ba * b.x + ca * c.x,
+      oy = aa * a.y + ba * b.y + ca * c.y,
+      cx, cy, i, j, k, sj, sk;
+
+  // Initialize the front-chain using the first three circles a, b and c.
+  a = new Node$1(a), b = new Node$1(b), c = new Node$1(c);
+  a.next = c.previous = b;
+  b.next = a.previous = c;
+  c.next = b.previous = a;
+
+  // Attempt to place each remaining circle…
+  pack: for (i = 3; i < n; ++i) {
+    place(a._, b._, c = circles[i]), c = new Node$1(c);
+
+    // Find the closest intersecting circle on the front-chain, if any.
+    // “Closeness” is determined by linear distance along the front-chain.
+    // “Ahead” or “behind” is likewise determined by linear distance.
+    j = b.next, k = a.previous, sj = b._.r, sk = a._.r;
+    do {
+      if (sj <= sk) {
+        if (intersects(j._, c._)) {
+          b = j, a.next = b, b.previous = a, --i;
+          continue pack;
+        }
+        sj += j._.r, j = j.next;
+      } else {
+        if (intersects(k._, c._)) {
+          a = k, a.next = b, b.previous = a, --i;
+          continue pack;
+        }
+        sk += k._.r, k = k.previous;
+      }
+    } while (j !== k.next);
+
+    // Success! Insert the new circle c between a and b.
+    c.previous = a, c.next = b, a.next = b.previous = b = c;
+
+    // Update the weighted centroid.
+    oa += ca = c._.r * c._.r;
+    ox += ca * c._.x;
+    oy += ca * c._.y;
+
+    // Compute the new closest circle pair to the centroid.
+    aa = distance2(a, cx = ox / oa, cy = oy / oa);
+    while ((c = c.next) !== b) {
+      if ((ca = distance2(c, cx, cy)) < aa) {
+        a = c, aa = ca;
+      }
+    }
+    b = a.next;
+  }
+
+  // Compute the enclosing circle of the front chain.
+  a = [b._], c = b; while ((c = c.next) !== b) a.push(c._); c = enclose(a);
+
+  // Translate the circles to put the enclosing circle around the origin.
+  for (i = 0; i < n; ++i) a = circles[i], a.x -= c.x, a.y -= c.y;
+
+  return c.r;
+}
+
+function optional(f) {
+  return f == null ? null : required(f);
+}
+
+function required(f) {
+  if (typeof f !== "function") throw new Error;
+  return f;
+}
+
+function constantZero() {
+  return 0;
+}
+
+var constant$19 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function defaultRadius$1(d) {
+  return Math.sqrt(d.value);
+}
+
+function radiusLeaf(radius) {
+  return function(node) {
+    if (!node.children) {
+      node.r = Math.max(0, +radius(node) || 0);
+    }
+  };
+}
+
+function packChildren(padding, k) {
+  return function(node) {
+    if (children = node.children) {
+      var children,
+          i,
+          n = children.length,
+          r = padding(node) * k || 0,
+          e;
+
+      if (r) for (i = 0; i < n; ++i) children[i].r += r;
+      e = packEnclose(children);
+      if (r) for (i = 0; i < n; ++i) children[i].r -= r;
+      node.r = e + r;
+    }
+  };
+}
+
+function translateChild(k) {
+  return function(node) {
+    var parent = node.parent;
+    node.r *= k;
+    if (parent) {
+      node.x = parent.x + k * node.x;
+      node.y = parent.y + k * node.y;
+    }
+  };
+}
+
+var roundNode = function(node) {
+  node.x0 = Math.round(node.x0);
+  node.y0 = Math.round(node.y0);
+  node.x1 = Math.round(node.x1);
+  node.y1 = Math.round(node.y1);
+};
+
+var treemapDice = function(parent, x0, y0, x1, y1) {
+  var nodes = parent.children,
+      node,
+      i = -1,
+      n = nodes.length,
+      k = parent.value && (x1 - x0) / parent.value;
+
+  while (++i < n) {
+    node = nodes[i], node.y0 = y0, node.y1 = y1;
+    node.x0 = x0, node.x1 = x0 += node.value * k;
+  }
+};
+
+var keyPrefix$3 = "$";
+var preroot = {depth: -1};
+var ambiguous = {};
+
+function defaultId(d) {
+  return d.id;
+}
+
+function defaultParentId(d) {
+  return d.parentId;
+}
+
+function defaultSeparation$1(a, b) {
+  return a.parent === b.parent ? 1 : 2;
+}
+
+// function radialSeparation(a, b) {
+//   return (a.parent === b.parent ? 1 : 2) / a.depth;
+// }
+
+// This function is used to traverse the left contour of a subtree (or
+// subforest). It returns the successor of v on this contour. This successor is
+// either given by the leftmost child of v or by the thread of v. The function
+// returns null if and only if v is on the highest level of its subtree.
+function nextLeft(v) {
+  var children = v.children;
+  return children ? children[0] : v.t;
+}
+
+// This function works analogously to nextLeft.
+function nextRight(v) {
+  var children = v.children;
+  return children ? children[children.length - 1] : v.t;
+}
+
+// Shifts the current subtree rooted at w+. This is done by increasing
+// prelim(w+) and mod(w+) by shift.
+function moveSubtree(wm, wp, shift) {
+  var change = shift / (wp.i - wm.i);
+  wp.c -= change;
+  wp.s += shift;
+  wm.c += change;
+  wp.z += shift;
+  wp.m += shift;
+}
+
+// All other shifts, applied to the smaller subtrees between w- and w+, are
+// performed by this function. To prepare the shifts, we have to adjust
+// change(w+), shift(w+), and change(w-).
+function executeShifts(v) {
+  var shift = 0,
+      change = 0,
+      children = v.children,
+      i = children.length,
+      w;
+  while (--i >= 0) {
+    w = children[i];
+    w.z += shift;
+    w.m += shift;
+    shift += w.s + (change += w.c);
+  }
+}
+
+// If vi-’s ancestor is a sibling of v, returns vi-’s ancestor. Otherwise,
+// returns the specified (default) ancestor.
+function nextAncestor(vim, v, ancestor) {
+  return vim.a.parent === v.parent ? vim.a : ancestor;
+}
+
+function TreeNode(node, i) {
+  this._ = node;
+  this.parent = null;
+  this.children = null;
+  this.A = null; // default ancestor
+  this.a = this; // ancestor
+  this.z = 0; // prelim
+  this.m = 0; // mod
+  this.c = 0; // change
+  this.s = 0; // shift
+  this.t = null; // thread
+  this.i = i; // number
+}
+
+TreeNode.prototype = Object.create(Node.prototype);
+
+function treeRoot(root) {
+  var tree = new TreeNode(root, 0),
+      node,
+      nodes = [tree],
+      child,
+      children,
+      i,
+      n;
+
+  while (node = nodes.pop()) {
+    if (children = node._.children) {
+      node.children = new Array(n = children.length);
+      for (i = n - 1; i >= 0; --i) {
+        nodes.push(child = node.children[i] = new TreeNode(children[i], i));
+        child.parent = node;
+      }
+    }
+  }
+
+  (tree.parent = new TreeNode(null, 0)).children = [tree];
+  return tree;
+}
+
+// Node-link tree diagram using the Reingold-Tilford "tidy" algorithm
+
+var treemapSlice = function(parent, x0, y0, x1, y1) {
+  var nodes = parent.children,
+      node,
+      i = -1,
+      n = nodes.length,
+      k = parent.value && (y1 - y0) / parent.value;
+
+  while (++i < n) {
+    node = nodes[i], node.x0 = x0, node.x1 = x1;
+    node.y0 = y0, node.y1 = y0 += node.value * k;
+  }
+};
+
+var phi = (1 + Math.sqrt(5)) / 2;
+
+function squarifyRatio(ratio, parent, x0, y0, x1, y1) {
+  var rows = [],
+      nodes = parent.children,
+      row,
+      nodeValue,
+      i0 = 0,
+      i1 = 0,
+      n = nodes.length,
+      dx, dy,
+      value = parent.value,
+      sumValue,
+      minValue,
+      maxValue,
+      newRatio,
+      minRatio,
+      alpha,
+      beta;
+
+  while (i0 < n) {
+    dx = x1 - x0, dy = y1 - y0;
+
+    // Find the next non-empty node.
+    do sumValue = nodes[i1++].value; while (!sumValue && i1 < n);
+    minValue = maxValue = sumValue;
+    alpha = Math.max(dy / dx, dx / dy) / (value * ratio);
+    beta = sumValue * sumValue * alpha;
+    minRatio = Math.max(maxValue / beta, beta / minValue);
+
+    // Keep adding nodes while the aspect ratio maintains or improves.
+    for (; i1 < n; ++i1) {
+      sumValue += nodeValue = nodes[i1].value;
+      if (nodeValue < minValue) minValue = nodeValue;
+      if (nodeValue > maxValue) maxValue = nodeValue;
+      beta = sumValue * sumValue * alpha;
+      newRatio = Math.max(maxValue / beta, beta / minValue);
+      if (newRatio > minRatio) { sumValue -= nodeValue; break; }
+      minRatio = newRatio;
+    }
+
+    // Position and record the row orientation.
+    rows.push(row = {value: sumValue, dice: dx < dy, children: nodes.slice(i0, i1)});
+    if (row.dice) treemapDice(row, x0, y0, x1, value ? y0 += dy * sumValue / value : y1);
+    else treemapSlice(row, x0, y0, value ? x0 += dx * sumValue / value : x1, y1);
+    value -= sumValue, i0 = i1;
+  }
+
+  return rows;
+}
+
+var squarify = (function custom(ratio) {
+
+  function squarify(parent, x0, y0, x1, y1) {
+    squarifyRatio(ratio, parent, x0, y0, x1, y1);
+  }
+
+  squarify.ratio = function(x) {
+    return custom((x = +x) > 1 ? x : 1);
+  };
+
+  return squarify;
+})(phi);
+
+(function custom(ratio) {
+
+  function resquarify(parent, x0, y0, x1, y1) {
+    if ((rows = parent._squarify) && (rows.ratio === ratio)) {
+      var rows,
+          row,
+          nodes,
+          i,
+          j = -1,
+          n,
+          m = rows.length,
+          value = parent.value;
+
+      while (++j < m) {
+        row = rows[j], nodes = row.children;
+        for (i = row.value = 0, n = nodes.length; i < n; ++i) row.value += nodes[i].value;
+        if (row.dice) treemapDice(row, x0, y0, x1, y0 += (y1 - y0) * row.value / value);
+        else treemapSlice(row, x0, y0, x0 += (x1 - x0) * row.value / value, y1);
+        value -= row.value;
+      }
+    } else {
+      parent._squarify = rows = squarifyRatio(ratio, parent, x0, y0, x1, y1);
+      rows.ratio = ratio;
+    }
+  }
+
+  resquarify.ratio = function(x) {
+    return custom((x = +x) > 1 ? x : 1);
+  };
+
+  return resquarify;
+})(phi);
+
+function basis$3(t1, v0, v1, v2, v3) {
+  var t2 = t1 * t1, t3 = t2 * t1;
+  return ((1 - 3 * t1 + 3 * t2 - t3) * v0
+      + (4 - 6 * t2 + 3 * t3) * v1
+      + (1 + 3 * t1 + 3 * t2 - 3 * t3) * v2
+      + t3 * v3) / 6;
+}
+
+var constant$20 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function linear$4(a, d) {
+  return function(t) {
+    return a + t * d;
+  };
+}
+
+function exponential$2(a, b, y) {
+  return a = Math.pow(a, y), b = Math.pow(b, y) - a, y = 1 / y, function(t) {
+    return Math.pow(a + t * b, y);
+  };
+}
+
+function hue$1(a, b) {
+  var d = b - a;
+  return d ? linear$4(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant$20(isNaN(a) ? b : a);
+}
+
+function gamma$1(y) {
+  return (y = +y) === 1 ? nogamma$1 : function(a, b) {
+    return b - a ? exponential$2(a, b, y) : constant$20(isNaN(a) ? b : a);
+  };
+}
+
+function nogamma$1(a, b) {
+  var d = b - a;
+  return d ? linear$4(a, d) : constant$20(isNaN(a) ? b : a);
+}
+
+var interpolateRgb$1 = (function rgbGamma(y) {
+  var color$$1 = gamma$1(y);
+
+  function rgb$$1(start, end) {
+    var r = color$$1((start = rgb(start)).r, (end = rgb(end)).r),
+        g = color$$1(start.g, end.g),
+        b = color$$1(start.b, end.b),
+        opacity = nogamma$1(start.opacity, end.opacity);
+    return function(t) {
+      start.r = r(t);
+      start.g = g(t);
+      start.b = b(t);
+      start.opacity = opacity(t);
+      return start + "";
+    };
+  }
+
+  rgb$$1.gamma = rgbGamma;
+
+  return rgb$$1;
+})(1);
+
+var array$6 = function(a, b) {
+  var nb = b ? b.length : 0,
+      na = a ? Math.min(nb, a.length) : 0,
+      x = new Array(nb),
+      c = new Array(nb),
+      i;
+
+  for (i = 0; i < na; ++i) x[i] = interpolateValue$1(a[i], b[i]);
+  for (; i < nb; ++i) c[i] = b[i];
+
+  return function(t) {
+    for (i = 0; i < na; ++i) c[i] = x[i](t);
+    return c;
+  };
+};
+
+var date$3 = function(a, b) {
+  var d = new Date;
+  return a = +a, b -= a, function(t) {
+    return d.setTime(a + b * t), d;
+  };
+};
+
+var interpolateNumber = function(a, b) {
+  return a = +a, b -= a, function(t) {
+    return a + b * t;
+  };
+};
+
+var object$3 = function(a, b) {
+  var i = {},
+      c = {},
+      k;
+
+  if (a === null || typeof a !== "object") a = {};
+  if (b === null || typeof b !== "object") b = {};
+
+  for (k in b) {
+    if (k in a) {
+      i[k] = interpolateValue$1(a[k], b[k]);
+    } else {
+      c[k] = b[k];
+    }
+  }
+
+  return function(t) {
+    for (k in i) c[k] = i[k](t);
+    return c;
+  };
+};
+
+var reA$1 = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g;
+var reB$1 = new RegExp(reA$1.source, "g");
+
+function zero$1(b) {
+  return function() {
+    return b;
+  };
+}
+
+function one$1(b) {
+  return function(t) {
+    return b(t) + "";
+  };
+}
+
+var interpolateString$1 = function(a, b) {
+  var bi = reA$1.lastIndex = reB$1.lastIndex = 0, // scan index for next number in b
+      am, // current match in a
+      bm, // current match in b
+      bs, // string preceding current number in b, if any
+      i = -1, // index in s
+      s = [], // string constants and placeholders
+      q = []; // number interpolators
+
+  // Coerce inputs to strings.
+  a = a + "", b = b + "";
+
+  // Interpolate pairs of numbers in a & b.
+  while ((am = reA$1.exec(a))
+      && (bm = reB$1.exec(b))) {
+    if ((bs = bm.index) > bi) { // a string precedes the next number in b
+      bs = b.slice(bi, bs);
+      if (s[i]) s[i] += bs; // coalesce with previous string
+      else s[++i] = bs;
+    }
+    if ((am = am[0]) === (bm = bm[0])) { // numbers in a & b match
+      if (s[i]) s[i] += bm; // coalesce with previous string
+      else s[++i] = bm;
+    } else { // interpolate non-matching numbers
+      s[++i] = null;
+      q.push({i: i, x: interpolateNumber(am, bm)});
+    }
+    bi = reB$1.lastIndex;
+  }
+
+  // Add remains of b.
+  if (bi < b.length) {
+    bs = b.slice(bi);
+    if (s[i]) s[i] += bs; // coalesce with previous string
+    else s[++i] = bs;
+  }
+
+  // Special optimization for only a single match.
+  // Otherwise, interpolate each of the numbers and rejoin the string.
+  return s.length < 2 ? (q[0]
+      ? one$1(q[0].x)
+      : zero$1(b))
+      : (b = q.length, function(t) {
+          for (var i = 0, o; i < b; ++i) s[(o = q[i]).i] = o.x(t);
+          return s.join("");
+        });
+};
+
+var interpolateValue$1 = function(a, b) {
+  var t = typeof b, c;
+  return b == null || t === "boolean" ? constant$20(b)
+      : (t === "number" ? interpolateNumber
+      : t === "string" ? ((c = color(b)) ? (b = c, interpolateRgb$1) : interpolateString$1)
+      : b instanceof color ? interpolateRgb$1
+      : b instanceof Date ? date$3
+      : Array.isArray(b) ? array$6
+      : typeof b.valueOf !== "function" && typeof b.toString !== "function" || isNaN(b) ? object$3
+      : interpolateNumber)(a, b);
+};
+
+var interpolateRound$1 = function(a, b) {
+  return a = +a, b -= a, function(t) {
+    return Math.round(a + b * t);
+  };
+};
+
+var degrees$3 = 180 / Math.PI;
+
+var identity$16 = {
+  translateX: 0,
+  translateY: 0,
+  rotate: 0,
+  skewX: 0,
+  scaleX: 1,
+  scaleY: 1
+};
+
+var decompose$1 = function(a, b, c, d, e, f) {
+  var scaleX, scaleY, skewX;
+  if (scaleX = Math.sqrt(a * a + b * b)) a /= scaleX, b /= scaleX;
+  if (skewX = a * c + b * d) c -= a * skewX, d -= b * skewX;
+  if (scaleY = Math.sqrt(c * c + d * d)) c /= scaleY, d /= scaleY, skewX /= scaleY;
+  if (a * d < b * c) a = -a, b = -b, skewX = -skewX, scaleX = -scaleX;
+  return {
+    translateX: e,
+    translateY: f,
+    rotate: Math.atan2(b, a) * degrees$3,
+    skewX: Math.atan(skewX) * degrees$3,
+    scaleX: scaleX,
+    scaleY: scaleY
+  };
+};
+
+var cssNode$1;
+var cssRoot$1;
+var cssView$1;
+var svgNode$1;
+
+function parseCss$1(value) {
+  if (value === "none") return identity$16;
+  if (!cssNode$1) cssNode$1 = document.createElement("DIV"), cssRoot$1 = document.documentElement, cssView$1 = document.defaultView;
+  cssNode$1.style.transform = value;
+  value = cssView$1.getComputedStyle(cssRoot$1.appendChild(cssNode$1), null).getPropertyValue("transform");
+  cssRoot$1.removeChild(cssNode$1);
+  value = value.slice(7, -1).split(",");
+  return decompose$1(+value[0], +value[1], +value[2], +value[3], +value[4], +value[5]);
+}
+
+function parseSvg$1(value) {
+  if (value == null) return identity$16;
+  if (!svgNode$1) svgNode$1 = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  svgNode$1.setAttribute("transform", value);
+  if (!(value = svgNode$1.transform.baseVal.consolidate())) return identity$16;
+  value = value.matrix;
+  return decompose$1(value.a, value.b, value.c, value.d, value.e, value.f);
+}
+
+function interpolateTransform$1(parse, pxComma, pxParen, degParen) {
+
+  function pop(s) {
+    return s.length ? s.pop() + " " : "";
+  }
+
+  function translate(xa, ya, xb, yb, s, q) {
+    if (xa !== xb || ya !== yb) {
+      var i = s.push("translate(", null, pxComma, null, pxParen);
+      q.push({i: i - 4, x: interpolateNumber(xa, xb)}, {i: i - 2, x: interpolateNumber(ya, yb)});
+    } else if (xb || yb) {
+      s.push("translate(" + xb + pxComma + yb + pxParen);
+    }
+  }
+
+  function rotate(a, b, s, q) {
+    if (a !== b) {
+      if (a - b > 180) b += 360; else if (b - a > 180) a += 360; // shortest path
+      q.push({i: s.push(pop(s) + "rotate(", null, degParen) - 2, x: interpolateNumber(a, b)});
+    } else if (b) {
+      s.push(pop(s) + "rotate(" + b + degParen);
+    }
+  }
+
+  function skewX(a, b, s, q) {
+    if (a !== b) {
+      q.push({i: s.push(pop(s) + "skewX(", null, degParen) - 2, x: interpolateNumber(a, b)});
+    } else if (b) {
+      s.push(pop(s) + "skewX(" + b + degParen);
+    }
+  }
+
+  function scale(xa, ya, xb, yb, s, q) {
+    if (xa !== xb || ya !== yb) {
+      var i = s.push(pop(s) + "scale(", null, ",", null, ")");
+      q.push({i: i - 4, x: interpolateNumber(xa, xb)}, {i: i - 2, x: interpolateNumber(ya, yb)});
+    } else if (xb !== 1 || yb !== 1) {
+      s.push(pop(s) + "scale(" + xb + "," + yb + ")");
+    }
+  }
+
+  return function(a, b) {
+    var s = [], // string constants and placeholders
+        q = []; // number interpolators
+    a = parse(a), b = parse(b);
+    translate(a.translateX, a.translateY, b.translateX, b.translateY, s, q);
+    rotate(a.rotate, b.rotate, s, q);
+    skewX(a.skewX, b.skewX, s, q);
+    scale(a.scaleX, a.scaleY, b.scaleX, b.scaleY, s, q);
+    a = b = null; // gc
+    return function(t) {
+      var i = -1, n = q.length, o;
+      while (++i < n) s[(o = q[i]).i] = o.x(t);
+      return s.join("");
+    };
+  };
+}
+
+var interpolateTransformCss$1 = interpolateTransform$1(parseCss$1, "px, ", "px)", "deg)");
+var interpolateTransformSvg$1 = interpolateTransform$1(parseSvg$1, ", ", ")", ")");
+
+var rho$1 = Math.SQRT2;
+var rho2$1 = 2;
+var rho4$1 = 4;
+var epsilon2$3 = 1e-12;
+
+function cosh$1(x) {
+  return ((x = Math.exp(x)) + 1 / x) / 2;
+}
+
+function sinh$1(x) {
+  return ((x = Math.exp(x)) - 1 / x) / 2;
+}
+
+function tanh$1(x) {
+  return ((x = Math.exp(2 * x)) - 1) / (x + 1);
+}
+
+// p0 = [ux0, uy0, w0]
+// p1 = [ux1, uy1, w1]
+var interpolateZoom$1 = function(p0, p1) {
+  var ux0 = p0[0], uy0 = p0[1], w0 = p0[2],
+      ux1 = p1[0], uy1 = p1[1], w1 = p1[2],
+      dx = ux1 - ux0,
+      dy = uy1 - uy0,
+      d2 = dx * dx + dy * dy,
+      i,
+      S;
+
+  // Special case for u0 ≅ u1.
+  if (d2 < epsilon2$3) {
+    S = Math.log(w1 / w0) / rho$1;
+    i = function(t) {
+      return [
+        ux0 + t * dx,
+        uy0 + t * dy,
+        w0 * Math.exp(rho$1 * t * S)
+      ];
+    };
+  }
+
+  // General case.
+  else {
+    var d1 = Math.sqrt(d2),
+        b0 = (w1 * w1 - w0 * w0 + rho4$1 * d2) / (2 * w0 * rho2$1 * d1),
+        b1 = (w1 * w1 - w0 * w0 - rho4$1 * d2) / (2 * w1 * rho2$1 * d1),
+        r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0),
+        r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1);
+    S = (r1 - r0) / rho$1;
+    i = function(t) {
+      var s = t * S,
+          coshr0 = cosh$1(r0),
+          u = w0 / (rho2$1 * d1) * (coshr0 * tanh$1(rho$1 * s + r0) - sinh$1(r0));
+      return [
+        ux0 + u * dx,
+        uy0 + u * dy,
+        w0 * coshr0 / cosh$1(rho$1 * s + r0)
+      ];
+    };
+  }
+
+  i.duration = S * 1000;
+
+  return i;
+};
+
+function cubehelix$5(hue$$1) {
+  return (function cubehelixGamma(y) {
+    y = +y;
+
+    function cubehelix$$1(start, end) {
+      var h = hue$$1((start = cubehelix(start)).h, (end = cubehelix(end)).h),
+          s = nogamma$1(start.s, end.s),
+          l = nogamma$1(start.l, end.l),
+          opacity = nogamma$1(start.opacity, end.opacity);
+      return function(t) {
+        start.h = h(t);
+        start.s = s(t);
+        start.l = l(Math.pow(t, y));
+        start.opacity = opacity(t);
+        return start + "";
+      };
+    }
+
+    cubehelix$$1.gamma = cubehelixGamma;
+
+    return cubehelix$$1;
+  })(1);
+}
+
+cubehelix$5(hue$1);
+var cubehelixLong$1 = cubehelix$5(nogamma$1);
+
+// Returns the 2D cross product of AB and AC vectors, i.e., the z-component of
+// the 3D cross product in a quadrant I Cartesian coordinate system (+x is
+// right, +y is up). Returns a positive value if ABC is counter-clockwise,
+// negative if clockwise, and zero if the points are collinear.
+var cross$3 = function(a, b, c) {
+  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+};
+
+function lexicographicOrder(a, b) {
+  return a[0] - b[0] || a[1] - b[1];
+}
+
+// Computes the upper convex hull per the monotone chain algorithm.
+// Assumes points.length >= 3, is sorted by x, unique in y.
+// Returns an array of indices into points in left-to-right order.
+function computeUpperHullIndexes(points) {
+  var n = points.length,
+      indexes = [0, 1],
+      size = 2;
+
+  for (var i = 2; i < n; ++i) {
+    while (size > 1 && cross$3(points[indexes[size - 2]], points[indexes[size - 1]], points[i]) <= 0) --size;
+    indexes[size++] = i;
+  }
+
+  return indexes.slice(0, size); // remove popped points
+}
+
+var slice$9 = [].slice;
+
+var noabort = {};
+
+function Queue(size) {
+  this._size = size;
+  this._call =
+  this._error = null;
+  this._tasks = [];
+  this._data = [];
+  this._waiting =
+  this._active =
+  this._ended =
+  this._start = 0; // inside a synchronous task callback?
+}
+
+Queue.prototype = queue.prototype = {
+  constructor: Queue,
+  defer: function(callback) {
+    if (typeof callback !== "function") throw new Error("invalid callback");
+    if (this._call) throw new Error("defer after await");
+    if (this._error != null) return this;
+    var t = slice$9.call(arguments, 1);
+    t.push(callback);
+    ++this._waiting, this._tasks.push(t);
+    poke$1(this);
+    return this;
+  },
+  abort: function() {
+    if (this._error == null) abort(this, new Error("abort"));
+    return this;
+  },
+  await: function(callback) {
+    if (typeof callback !== "function") throw new Error("invalid callback");
+    if (this._call) throw new Error("multiple await");
+    this._call = function(error, results) { callback.apply(null, [error].concat(results)); };
+    maybeNotify(this);
+    return this;
+  },
+  awaitAll: function(callback) {
+    if (typeof callback !== "function") throw new Error("invalid callback");
+    if (this._call) throw new Error("multiple await");
+    this._call = callback;
+    maybeNotify(this);
+    return this;
+  }
+};
+
+function poke$1(q) {
+  if (!q._start) {
+    try { start$1(q); } // let the current task complete
+    catch (e) {
+      if (q._tasks[q._ended + q._active - 1]) abort(q, e); // task errored synchronously
+      else if (!q._data) throw e; // await callback errored synchronously
+    }
+  }
+}
+
+function start$1(q) {
+  while (q._start = q._waiting && q._active < q._size) {
+    var i = q._ended + q._active,
+        t = q._tasks[i],
+        j = t.length - 1,
+        c = t[j];
+    t[j] = end(q, i);
+    --q._waiting, ++q._active;
+    t = c.apply(null, t);
+    if (!q._tasks[i]) continue; // task finished synchronously
+    q._tasks[i] = t || noabort;
+  }
+}
+
+function end(q, i) {
+  return function(e, r) {
+    if (!q._tasks[i]) return; // ignore multiple callbacks
+    --q._active, ++q._ended;
+    q._tasks[i] = null;
+    if (q._error != null) return; // ignore secondary errors
+    if (e != null) {
+      abort(q, e);
+    } else {
+      q._data[i] = r;
+      if (q._waiting) poke$1(q);
+      else maybeNotify(q);
+    }
+  };
+}
+
+function abort(q, e) {
+  var i = q._tasks.length, t;
+  q._error = e; // ignore active callbacks
+  q._data = undefined; // allow gc
+  q._waiting = NaN; // prevent starting
+
+  while (--i >= 0) {
+    if (t = q._tasks[i]) {
+      q._tasks[i] = null;
+      if (t.abort) {
+        try { t.abort(); }
+        catch (e) { /* ignore */ }
+      }
+    }
+  }
+
+  q._active = NaN; // allow notification
+  maybeNotify(q);
+}
+
+function maybeNotify(q) {
+  if (!q._active && q._call) {
+    var d = q._data;
+    q._data = undefined; // allow gc
+    q._call(q._error, d);
+  }
+}
+
+function queue(concurrency) {
+  if (concurrency == null) concurrency = Infinity;
+  else if (!((concurrency = +concurrency) >= 1)) throw new Error("invalid concurrency");
+  return new Queue(concurrency);
+}
+
+var defaultSource$1 = function() {
+  return Math.random();
+};
+
+(function sourceRandomUniform(source) {
+  function randomUniform(min, max) {
+    min = min == null ? 0 : +min;
+    max = max == null ? 1 : +max;
+    if (arguments.length === 1) max = min, min = 0;
+    else max -= min;
+    return function() {
+      return source() * max + min;
+    };
+  }
+
+  randomUniform.source = sourceRandomUniform;
+
+  return randomUniform;
+})(defaultSource$1);
+
+var normal$1 = (function sourceRandomNormal(source) {
+  function randomNormal(mu, sigma) {
+    var x, r;
+    mu = mu == null ? 0 : +mu;
+    sigma = sigma == null ? 1 : +sigma;
+    return function() {
+      var y;
+
+      // If available, use the second previously-generated uniform random.
+      if (x != null) y = x, x = null;
+
+      // Otherwise, generate a new x and y.
+      else do {
+        x = source() * 2 - 1;
+        y = source() * 2 - 1;
+        r = x * x + y * y;
+      } while (!r || r > 1);
+
+      return mu + sigma * y * Math.sqrt(-2 * Math.log(r) / r);
+    };
+  }
+
+  randomNormal.source = sourceRandomNormal;
+
+  return randomNormal;
+})(defaultSource$1);
+
+(function sourceRandomLogNormal(source) {
+  function randomLogNormal() {
+    var randomNormal = normal$1.source(source).apply(this, arguments);
+    return function() {
+      return Math.exp(randomNormal());
+    };
+  }
+
+  randomLogNormal.source = sourceRandomLogNormal;
+
+  return randomLogNormal;
+})(defaultSource$1);
+
+var irwinHall$1 = (function sourceRandomIrwinHall(source) {
+  function randomIrwinHall(n) {
+    return function() {
+      for (var sum = 0, i = 0; i < n; ++i) sum += source();
+      return sum;
+    };
+  }
+
+  randomIrwinHall.source = sourceRandomIrwinHall;
+
+  return randomIrwinHall;
+})(defaultSource$1);
+
+(function sourceRandomBates(source) {
+  function randomBates(n) {
+    var randomIrwinHall = irwinHall$1.source(source)(n);
+    return function() {
+      return randomIrwinHall() / n;
+    };
+  }
+
+  randomBates.source = sourceRandomBates;
+
+  return randomBates;
+})(defaultSource$1);
+
+(function sourceRandomExponential(source) {
+  function randomExponential(lambda) {
+    return function() {
+      return -Math.log(1 - source()) / lambda;
+    };
+  }
+
+  randomExponential.source = sourceRandomExponential;
+
+  return randomExponential;
+})(defaultSource$1);
+
+var array$7 = Array.prototype;
+
+var map$7 = array$7.map;
+var slice$10 = array$7.slice;
+
+var implicit$2 = {name: "implicit"};
+
+function ordinal$2(range) {
+  var index = map$1(),
+      domain = [],
+      unknown = implicit$2;
+
+  range = range == null ? [] : slice$10.call(range);
+
+  function scale(d) {
+    var key = d + "", i = index.get(key);
+    if (!i) {
+      if (unknown !== implicit$2) return unknown;
+      index.set(key, i = domain.push(d));
+    }
+    return range[(i - 1) % range.length];
+  }
+
+  scale.domain = function(_) {
+    if (!arguments.length) return domain.slice();
+    domain = [], index = map$1();
+    var i = -1, n = _.length, d, key;
+    while (++i < n) if (!index.has(key = (d = _[i]) + "")) index.set(key, domain.push(d));
+    return scale;
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range = slice$10.call(_), scale) : range.slice();
+  };
+
+  scale.unknown = function(_) {
+    return arguments.length ? (unknown = _, scale) : unknown;
+  };
+
+  scale.copy = function() {
+    return ordinal$2()
+        .domain(domain)
+        .range(range)
+        .unknown(unknown);
+  };
+
+  return scale;
+}
+
+function band$2() {
+  var scale = ordinal$2().unknown(undefined),
+      domain = scale.domain,
+      ordinalRange = scale.range,
+      range$$1 = [0, 1],
+      step,
+      bandwidth,
+      round = false,
+      paddingInner = 0,
+      paddingOuter = 0,
+      align = 0.5;
+
+  delete scale.unknown;
+
+  function rescale() {
+    var n = domain().length,
+        reverse = range$$1[1] < range$$1[0],
+        start = range$$1[reverse - 0],
+        stop = range$$1[1 - reverse];
+    step = (stop - start) / Math.max(1, n - paddingInner + paddingOuter * 2);
+    if (round) step = Math.floor(step);
+    start += (stop - start - step * (n - paddingInner)) * align;
+    bandwidth = step * (1 - paddingInner);
+    if (round) start = Math.round(start), bandwidth = Math.round(bandwidth);
+    var values = sequence(n).map(function(i) { return start + step * i; });
+    return ordinalRange(reverse ? values.reverse() : values);
+  }
+
+  scale.domain = function(_) {
+    return arguments.length ? (domain(_), rescale()) : domain();
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range$$1 = [+_[0], +_[1]], rescale()) : range$$1.slice();
+  };
+
+  scale.rangeRound = function(_) {
+    return range$$1 = [+_[0], +_[1]], round = true, rescale();
+  };
+
+  scale.bandwidth = function() {
+    return bandwidth;
+  };
+
+  scale.step = function() {
+    return step;
+  };
+
+  scale.round = function(_) {
+    return arguments.length ? (round = !!_, rescale()) : round;
+  };
+
+  scale.padding = function(_) {
+    return arguments.length ? (paddingInner = paddingOuter = Math.max(0, Math.min(1, _)), rescale()) : paddingInner;
+  };
+
+  scale.paddingInner = function(_) {
+    return arguments.length ? (paddingInner = Math.max(0, Math.min(1, _)), rescale()) : paddingInner;
+  };
+
+  scale.paddingOuter = function(_) {
+    return arguments.length ? (paddingOuter = Math.max(0, Math.min(1, _)), rescale()) : paddingOuter;
+  };
+
+  scale.align = function(_) {
+    return arguments.length ? (align = Math.max(0, Math.min(1, _)), rescale()) : align;
+  };
+
+  scale.copy = function() {
+    return band$2()
+        .domain(domain())
+        .range(range$$1)
+        .round(round)
+        .paddingInner(paddingInner)
+        .paddingOuter(paddingOuter)
+        .align(align);
+  };
+
+  return rescale();
+}
+
+function pointish$2(scale) {
+  var copy = scale.copy;
+
+  scale.padding = scale.paddingOuter;
+  delete scale.paddingInner;
+  delete scale.paddingOuter;
+
+  scale.copy = function() {
+    return pointish$2(copy());
+  };
+
+  return scale;
+}
+
+var constant$21 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+var number$7 = function(x) {
+  return +x;
+};
+
+var unit$2 = [0, 1];
+
+function deinterpolateLinear$2(a, b) {
+  return (b -= (a = +a))
+      ? function(x) { return (x - a) / b; }
+      : constant$21(b);
+}
+
+function deinterpolateClamp$2(deinterpolate) {
+  return function(a, b) {
+    var d = deinterpolate(a = +a, b = +b);
+    return function(x) { return x <= a ? 0 : x >= b ? 1 : d(x); };
+  };
+}
+
+function reinterpolateClamp$2(reinterpolate) {
+  return function(a, b) {
+    var r = reinterpolate(a = +a, b = +b);
+    return function(t) { return t <= 0 ? a : t >= 1 ? b : r(t); };
+  };
+}
+
+function bimap$2(domain, range$$1, deinterpolate, reinterpolate) {
+  var d0 = domain[0], d1 = domain[1], r0 = range$$1[0], r1 = range$$1[1];
+  if (d1 < d0) d0 = deinterpolate(d1, d0), r0 = reinterpolate(r1, r0);
+  else d0 = deinterpolate(d0, d1), r0 = reinterpolate(r0, r1);
+  return function(x) { return r0(d0(x)); };
+}
+
+function polymap$2(domain, range$$1, deinterpolate, reinterpolate) {
+  var j = Math.min(domain.length, range$$1.length) - 1,
+      d = new Array(j),
+      r = new Array(j),
+      i = -1;
+
+  // Reverse descending domains.
+  if (domain[j] < domain[0]) {
+    domain = domain.slice().reverse();
+    range$$1 = range$$1.slice().reverse();
+  }
+
+  while (++i < j) {
+    d[i] = deinterpolate(domain[i], domain[i + 1]);
+    r[i] = reinterpolate(range$$1[i], range$$1[i + 1]);
+  }
+
+  return function(x) {
+    var i = bisectRight$2(domain, x, 1, j) - 1;
+    return r[i](d[i](x));
+  };
+}
+
+function copy$2(source, target) {
+  return target
+      .domain(source.domain())
+      .range(source.range())
+      .interpolate(source.interpolate())
+      .clamp(source.clamp());
+}
+
+// deinterpolate(a, b)(x) takes a domain value x in [a,b] and returns the corresponding parameter t in [0,1].
+// reinterpolate(a, b)(t) takes a parameter t in [0,1] and returns the corresponding domain value x in [a,b].
+function continuous$2(deinterpolate, reinterpolate) {
+  var domain = unit$2,
+      range$$1 = unit$2,
+      interpolate$$1 = interpolateValue$1,
+      clamp = false,
+      piecewise,
+      output,
+      input;
+
+  function rescale() {
+    piecewise = Math.min(domain.length, range$$1.length) > 2 ? polymap$2 : bimap$2;
+    output = input = null;
+    return scale;
+  }
+
+  function scale(x) {
+    return (output || (output = piecewise(domain, range$$1, clamp ? deinterpolateClamp$2(deinterpolate) : deinterpolate, interpolate$$1)))(+x);
+  }
+
+  scale.invert = function(y) {
+    return (input || (input = piecewise(range$$1, domain, deinterpolateLinear$2, clamp ? reinterpolateClamp$2(reinterpolate) : reinterpolate)))(+y);
+  };
+
+  scale.domain = function(_) {
+    return arguments.length ? (domain = map$7.call(_, number$7), rescale()) : domain.slice();
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range$$1 = slice$10.call(_), rescale()) : range$$1.slice();
+  };
+
+  scale.rangeRound = function(_) {
+    return range$$1 = slice$10.call(_), interpolate$$1 = interpolateRound$1, rescale();
+  };
+
+  scale.clamp = function(_) {
+    return arguments.length ? (clamp = !!_, rescale()) : clamp;
+  };
+
+  scale.interpolate = function(_) {
+    return arguments.length ? (interpolate$$1 = _, rescale()) : interpolate$$1;
+  };
+
+  return rescale();
+}
+
+var tickFormat$2 = function(domain, count, specifier) {
+  var start = domain[0],
+      stop = domain[domain.length - 1],
+      step = tickStep$2(start, stop, count == null ? 10 : count),
+      precision;
+  specifier = formatSpecifier(specifier == null ? ",f" : specifier);
+  switch (specifier.type) {
+    case "s": {
+      var value = Math.max(Math.abs(start), Math.abs(stop));
+      if (specifier.precision == null && !isNaN(precision = precisionPrefix(step, value))) specifier.precision = precision;
+      return exports.formatPrefix(specifier, value);
+    }
+    case "":
+    case "e":
+    case "g":
+    case "p":
+    case "r": {
+      if (specifier.precision == null && !isNaN(precision = precisionRound(step, Math.max(Math.abs(start), Math.abs(stop))))) specifier.precision = precision - (specifier.type === "e");
+      break;
+    }
+    case "f":
+    case "%": {
+      if (specifier.precision == null && !isNaN(precision = precisionFixed(step))) specifier.precision = precision - (specifier.type === "%") * 2;
+      break;
+    }
+  }
+  return exports.format(specifier);
+};
+
+function linearish$2(scale) {
+  var domain = scale.domain;
+
+  scale.ticks = function(count) {
+    var d = domain();
+    return ticks$2(d[0], d[d.length - 1], count == null ? 10 : count);
+  };
+
+  scale.tickFormat = function(count, specifier) {
+    return tickFormat$2(domain(), count, specifier);
+  };
+
+  scale.nice = function(count) {
+    if (count == null) count = 10;
+
+    var d = domain(),
+        i0 = 0,
+        i1 = d.length - 1,
+        start = d[i0],
+        stop = d[i1],
+        step;
+
+    if (stop < start) {
+      step = start, start = stop, stop = step;
+      step = i0, i0 = i1, i1 = step;
+    }
+
+    step = tickIncrement(start, stop, count);
+
+    if (step > 0) {
+      start = Math.floor(start / step) * step;
+      stop = Math.ceil(stop / step) * step;
+      step = tickIncrement(start, stop, count);
+    } else if (step < 0) {
+      start = Math.ceil(start * step) / step;
+      stop = Math.floor(stop * step) / step;
+      step = tickIncrement(start, stop, count);
+    }
+
+    if (step > 0) {
+      d[i0] = Math.floor(start / step) * step;
+      d[i1] = Math.ceil(stop / step) * step;
+      domain(d);
+    } else if (step < 0) {
+      d[i0] = Math.ceil(start * step) / step;
+      d[i1] = Math.floor(stop * step) / step;
+      domain(d);
+    }
+
+    return scale;
+  };
+
+  return scale;
+}
+
+function linear$5() {
+  var scale = continuous$2(deinterpolateLinear$2, interpolateNumber);
+
+  scale.copy = function() {
+    return copy$2(scale, linear$5());
+  };
+
+  return linearish$2(scale);
+}
+
+function identity$17() {
+  var domain = [0, 1];
+
+  function scale(x) {
+    return +x;
+  }
+
+  scale.invert = scale;
+
+  scale.domain = scale.range = function(_) {
+    return arguments.length ? (domain = map$7.call(_, number$7), scale) : domain.slice();
+  };
+
+  scale.copy = function() {
+    return identity$17().domain(domain);
+  };
+
+  return linearish$2(scale);
+}
+
+var nice$2 = function(domain, interval) {
+  domain = domain.slice();
+
+  var i0 = 0,
+      i1 = domain.length - 1,
+      x0 = domain[i0],
+      x1 = domain[i1],
+      t;
+
+  if (x1 < x0) {
+    t = i0, i0 = i1, i1 = t;
+    t = x0, x0 = x1, x1 = t;
+  }
+
+  domain[i0] = interval.floor(x0);
+  domain[i1] = interval.ceil(x1);
+  return domain;
+};
+
+function deinterpolate$2(a, b) {
+  return (b = Math.log(b / a))
+      ? function(x) { return Math.log(x / a) / b; }
+      : constant$21(b);
+}
+
+function reinterpolate$3(a, b) {
+  return a < 0
+      ? function(t) { return -Math.pow(-b, t) * Math.pow(-a, 1 - t); }
+      : function(t) { return Math.pow(b, t) * Math.pow(a, 1 - t); };
+}
+
+function pow10$2(x) {
+  return isFinite(x) ? +("1e" + x) : x < 0 ? 0 : x;
+}
+
+function powp$2(base) {
+  return base === 10 ? pow10$2
+      : base === Math.E ? Math.exp
+      : function(x) { return Math.pow(base, x); };
+}
+
+function logp$2(base) {
+  return base === Math.E ? Math.log
+      : base === 10 && Math.log10
+      || base === 2 && Math.log2
+      || (base = Math.log(base), function(x) { return Math.log(x) / base; });
+}
+
+function reflect$2(f) {
+  return function(x) {
+    return -f(-x);
+  };
+}
+
+function log$4() {
+  var scale = continuous$2(deinterpolate$2, reinterpolate$3).domain([1, 10]),
+      domain = scale.domain,
+      base = 10,
+      logs = logp$2(10),
+      pows = powp$2(10);
+
+  function rescale() {
+    logs = logp$2(base), pows = powp$2(base);
+    if (domain()[0] < 0) logs = reflect$2(logs), pows = reflect$2(pows);
+    return scale;
+  }
+
+  scale.base = function(_) {
+    return arguments.length ? (base = +_, rescale()) : base;
+  };
+
+  scale.domain = function(_) {
+    return arguments.length ? (domain(_), rescale()) : domain();
+  };
+
+  scale.ticks = function(count) {
+    var d = domain(),
+        u = d[0],
+        v = d[d.length - 1],
+        r;
+
+    if (r = v < u) i = u, u = v, v = i;
+
+    var i = logs(u),
+        j = logs(v),
+        p,
+        k,
+        t,
+        n = count == null ? 10 : +count,
+        z = [];
+
+    if (!(base % 1) && j - i < n) {
+      i = Math.round(i) - 1, j = Math.round(j) + 1;
+      if (u > 0) for (; i < j; ++i) {
+        for (k = 1, p = pows(i); k < base; ++k) {
+          t = p * k;
+          if (t < u) continue;
+          if (t > v) break;
+          z.push(t);
+        }
+      } else for (; i < j; ++i) {
+        for (k = base - 1, p = pows(i); k >= 1; --k) {
+          t = p * k;
+          if (t < u) continue;
+          if (t > v) break;
+          z.push(t);
+        }
+      }
+    } else {
+      z = ticks$2(i, j, Math.min(j - i, n)).map(pows);
+    }
+
+    return r ? z.reverse() : z;
+  };
+
+  scale.tickFormat = function(count, specifier) {
+    if (specifier == null) specifier = base === 10 ? ".0e" : ",";
+    if (typeof specifier !== "function") specifier = exports.format(specifier);
+    if (count === Infinity) return specifier;
+    if (count == null) count = 10;
+    var k = Math.max(1, base * count / scale.ticks().length); // TODO fast estimate?
+    return function(d) {
+      var i = d / pows(Math.round(logs(d)));
+      if (i * base < base - 0.5) i *= base;
+      return i <= k ? specifier(d) : "";
+    };
+  };
+
+  scale.nice = function() {
+    return domain(nice$2(domain(), {
+      floor: function(x) { return pows(Math.floor(logs(x))); },
+      ceil: function(x) { return pows(Math.ceil(logs(x))); }
+    }));
+  };
+
+  scale.copy = function() {
+    return copy$2(scale, log$4().base(base));
+  };
+
+  return scale;
+}
+
+function raise$5(x, exponent) {
+  return x < 0 ? -Math.pow(-x, exponent) : Math.pow(x, exponent);
+}
+
+function pow$4() {
+  var exponent = 1,
+      scale = continuous$2(deinterpolate, reinterpolate),
+      domain = scale.domain;
+
+  function deinterpolate(a, b) {
+    return (b = raise$5(b, exponent) - (a = raise$5(a, exponent)))
+        ? function(x) { return (raise$5(x, exponent) - a) / b; }
+        : constant$21(b);
+  }
+
+  function reinterpolate(a, b) {
+    b = raise$5(b, exponent) - (a = raise$5(a, exponent));
+    return function(t) { return raise$5(a + b * t, 1 / exponent); };
+  }
+
+  scale.exponent = function(_) {
+    return arguments.length ? (exponent = +_, domain(domain())) : exponent;
+  };
+
+  scale.copy = function() {
+    return copy$2(scale, pow$4().exponent(exponent));
+  };
+
+  return linearish$2(scale);
+}
+
+function quantile$2() {
+  var domain = [],
+      range$$1 = [],
+      thresholds = [];
+
+  function rescale() {
+    var i = 0, n = Math.max(1, range$$1.length);
+    thresholds = new Array(n - 1);
+    while (++i < n) thresholds[i - 1] = threshold$4(domain, i / n);
+    return scale;
+  }
+
+  function scale(x) {
+    if (!isNaN(x = +x)) return range$$1[bisectRight$2(thresholds, x)];
+  }
+
+  scale.invertExtent = function(y) {
+    var i = range$$1.indexOf(y);
+    return i < 0 ? [NaN, NaN] : [
+      i > 0 ? thresholds[i - 1] : domain[0],
+      i < thresholds.length ? thresholds[i] : domain[domain.length - 1]
+    ];
+  };
+
+  scale.domain = function(_) {
+    if (!arguments.length) return domain.slice();
+    domain = [];
+    for (var i = 0, n = _.length, d; i < n; ++i) if (d = _[i], d != null && !isNaN(d = +d)) domain.push(d);
+    domain.sort(ascending$5);
+    return rescale();
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range$$1 = slice$10.call(_), rescale()) : range$$1.slice();
+  };
+
+  scale.quantiles = function() {
+    return thresholds.slice();
+  };
+
+  scale.copy = function() {
+    return quantile$2()
+        .domain(domain)
+        .range(range$$1);
+  };
+
+  return scale;
+}
+
+function quantize$4() {
+  var x0 = 0,
+      x1 = 1,
+      n = 1,
+      domain = [0.5],
+      range$$1 = [0, 1];
+
+  function scale(x) {
+    if (x <= x) return range$$1[bisectRight$2(domain, x, 0, n)];
+  }
+
+  function rescale() {
+    var i = -1;
+    domain = new Array(n);
+    while (++i < n) domain[i] = ((i + 1) * x1 - (i - n) * x0) / (n + 1);
+    return scale;
+  }
+
+  scale.domain = function(_) {
+    return arguments.length ? (x0 = +_[0], x1 = +_[1], rescale()) : [x0, x1];
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (n = (range$$1 = slice$10.call(_)).length - 1, rescale()) : range$$1.slice();
+  };
+
+  scale.invertExtent = function(y) {
+    var i = range$$1.indexOf(y);
+    return i < 0 ? [NaN, NaN]
+        : i < 1 ? [x0, domain[0]]
+        : i >= n ? [domain[n - 1], x1]
+        : [domain[i - 1], domain[i]];
+  };
+
+  scale.copy = function() {
+    return quantize$4()
+        .domain([x0, x1])
+        .range(range$$1);
+  };
+
+  return linearish$2(scale);
+}
+
+function threshold$5() {
+  var domain = [0.5],
+      range$$1 = [0, 1],
+      n = 1;
+
+  function scale(x) {
+    if (x <= x) return range$$1[bisectRight$2(domain, x, 0, n)];
+  }
+
+  scale.domain = function(_) {
+    return arguments.length ? (domain = slice$10.call(_), n = Math.min(domain.length, range$$1.length - 1), scale) : domain.slice();
+  };
+
+  scale.range = function(_) {
+    return arguments.length ? (range$$1 = slice$10.call(_), n = Math.min(domain.length, range$$1.length - 1), scale) : range$$1.slice();
+  };
+
+  scale.invertExtent = function(y) {
+    var i = range$$1.indexOf(y);
+    return [domain[i - 1], domain[i]];
+  };
+
+  scale.copy = function() {
+    return threshold$5()
+        .domain(domain)
+        .range(range$$1);
+  };
+
+  return scale;
+}
+
+var durationSecond$3 = 1000;
+var durationMinute$3 = durationSecond$3 * 60;
+var durationHour$3 = durationMinute$3 * 60;
+var durationDay$3 = durationHour$3 * 24;
+var durationWeek$3 = durationDay$3 * 7;
+var durationMonth$2 = durationDay$3 * 30;
+var durationYear$2 = durationDay$3 * 365;
+
+function date$4(t) {
+  return new Date(t);
+}
+
+function number$8(t) {
+  return t instanceof Date ? +t : +new Date(+t);
+}
+
+function calendar$2(year$$1, month$$1, week, day$$1, hour$$1, minute$$1, second$$1, millisecond$$1, format) {
+  var scale = continuous$2(deinterpolateLinear$2, interpolateNumber),
+      invert = scale.invert,
+      domain = scale.domain;
+
+  var formatMillisecond = format(".%L"),
+      formatSecond = format(":%S"),
+      formatMinute = format("%I:%M"),
+      formatHour = format("%I %p"),
+      formatDay = format("%a %d"),
+      formatWeek = format("%b %d"),
+      formatMonth = format("%B"),
+      formatYear = format("%Y");
+
+  var tickIntervals = [
+    [second$$1,  1,      durationSecond$3],
+    [second$$1,  5,  5 * durationSecond$3],
+    [second$$1, 15, 15 * durationSecond$3],
+    [second$$1, 30, 30 * durationSecond$3],
+    [minute$$1,  1,      durationMinute$3],
+    [minute$$1,  5,  5 * durationMinute$3],
+    [minute$$1, 15, 15 * durationMinute$3],
+    [minute$$1, 30, 30 * durationMinute$3],
+    [  hour$$1,  1,      durationHour$3  ],
+    [  hour$$1,  3,  3 * durationHour$3  ],
+    [  hour$$1,  6,  6 * durationHour$3  ],
+    [  hour$$1, 12, 12 * durationHour$3  ],
+    [   day$$1,  1,      durationDay$3   ],
+    [   day$$1,  2,  2 * durationDay$3   ],
+    [  week,  1,      durationWeek$3  ],
+    [ month$$1,  1,      durationMonth$2 ],
+    [ month$$1,  3,  3 * durationMonth$2 ],
+    [  year$$1,  1,      durationYear$2  ]
+  ];
+
+  function tickFormat(date) {
+    return (second$$1(date) < date ? formatMillisecond
+        : minute$$1(date) < date ? formatSecond
+        : hour$$1(date) < date ? formatMinute
+        : day$$1(date) < date ? formatHour
+        : month$$1(date) < date ? (week(date) < date ? formatDay : formatWeek)
+        : year$$1(date) < date ? formatMonth
+        : formatYear)(date);
+  }
+
+  function tickInterval(interval, start, stop, step) {
+    if (interval == null) interval = 10;
+
+    // If a desired tick count is specified, pick a reasonable tick interval
+    // based on the extent of the domain and a rough estimate of tick size.
+    // Otherwise, assume interval is already a time interval and use it.
+    if (typeof interval === "number") {
+      var target = Math.abs(stop - start) / interval,
+          i = bisector$2(function(i) { return i[2]; }).right(tickIntervals, target);
+      if (i === tickIntervals.length) {
+        step = tickStep$2(start / durationYear$2, stop / durationYear$2, interval);
+        interval = year$$1;
+      } else if (i) {
+        i = tickIntervals[target / tickIntervals[i - 1][2] < tickIntervals[i][2] / target ? i - 1 : i];
+        step = i[1];
+        interval = i[0];
+      } else {
+        step = tickStep$2(start, stop, interval);
+        interval = millisecond$$1;
+      }
+    }
+
+    return step == null ? interval : interval.every(step);
+  }
+
+  scale.invert = function(y) {
+    return new Date(invert(y));
+  };
+
+  scale.domain = function(_) {
+    return arguments.length ? domain(map$7.call(_, number$8)) : domain().map(date$4);
+  };
+
+  scale.ticks = function(interval, step) {
+    var d = domain(),
+        t0 = d[0],
+        t1 = d[d.length - 1],
+        r = t1 < t0,
+        t;
+    if (r) t = t0, t0 = t1, t1 = t;
+    t = tickInterval(interval, t0, t1, step);
+    t = t ? t.range(t0, t1 + 1) : []; // inclusive stop
+    return r ? t.reverse() : t;
+  };
+
+  scale.tickFormat = function(count, specifier) {
+    return specifier == null ? tickFormat : format(specifier);
+  };
+
+  scale.nice = function(interval, step) {
+    var d = domain();
+    return (interval = tickInterval(interval, d[0], d[d.length - 1], step))
+        ? domain(nice$2(d, interval))
+        : scale;
+  };
+
+  scale.copy = function() {
+    return copy$2(scale, calendar$2(year$$1, month$$1, week, day$$1, hour$$1, minute$$1, second$$1, millisecond$$1, format));
+  };
+
+  return scale;
+}
+
+var colors$2 = function(s) {
+  return s.match(/.{6}/g).map(function(x) {
+    return "#" + x;
+  });
+};
+
+colors$2("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
+
+colors$2("393b795254a36b6ecf9c9ede6379398ca252b5cf6bcedb9c8c6d31bd9e39e7ba52e7cb94843c39ad494ad6616be7969c7b4173a55194ce6dbdde9ed6");
+
+colors$2("3182bd6baed69ecae1c6dbefe6550dfd8d3cfdae6bfdd0a231a35474c476a1d99bc7e9c0756bb19e9ac8bcbddcdadaeb636363969696bdbdbdd9d9d9");
+
+colors$2("1f77b4aec7e8ff7f0effbb782ca02c98df8ad62728ff98969467bdc5b0d58c564bc49c94e377c2f7b6d27f7f7fc7c7c7bcbd22dbdb8d17becf9edae5");
+
+cubehelixLong$1(cubehelix(300, 0.5, 0.0), cubehelix(-240, 0.5, 1.0));
+
+var warm$2 = cubehelixLong$1(cubehelix(-100, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
+
+var cool$2 = cubehelixLong$1(cubehelix(260, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
+
+var rainbow$4 = cubehelix();
+
+function sequential$2(interpolator) {
+  var x0 = 0,
+      x1 = 1,
+      clamp = false;
+
+  function scale(x) {
+    var t = (x - x0) / (x1 - x0);
+    return interpolator(clamp ? Math.max(0, Math.min(1, t)) : t);
+  }
+
+  scale.domain = function(_) {
+    return arguments.length ? (x0 = +_[0], x1 = +_[1], scale) : [x0, x1];
+  };
+
+  scale.clamp = function(_) {
+    return arguments.length ? (clamp = !!_, scale) : clamp;
+  };
+
+  scale.interpolator = function(_) {
+    return arguments.length ? (interpolator = _, scale) : interpolator;
+  };
+
+  scale.copy = function() {
+    return sequential$2(interpolator).domain([x0, x1]).clamp(clamp);
+  };
+
+  return linearish$2(scale);
+}
+
+var constant$22 = function(x) {
+  return function constant() {
+    return x;
+  };
+};
+
+var abs$3 = Math.abs;
+var atan2$3 = Math.atan2;
+var cos$4 = Math.cos;
+var max$5 = Math.max;
+var min$4 = Math.min;
+var sin$4 = Math.sin;
+var sqrt$6 = Math.sqrt;
+
+var epsilon$6 = 1e-12;
+var pi$6 = Math.PI;
+var halfPi$5 = pi$6 / 2;
+var tau$6 = 2 * pi$6;
+
+function acos$3(x) {
+  return x > 1 ? 0 : x < -1 ? pi$6 : Math.acos(x);
+}
+
+function asin$3(x) {
+  return x >= 1 ? halfPi$5 : x <= -1 ? -halfPi$5 : Math.asin(x);
+}
+
+function arcInnerRadius$1(d) {
+  return d.innerRadius;
+}
+
+function arcOuterRadius$1(d) {
+  return d.outerRadius;
+}
+
+function arcStartAngle$1(d) {
+  return d.startAngle;
+}
+
+function arcEndAngle$1(d) {
+  return d.endAngle;
+}
+
+function arcPadAngle$1(d) {
+  return d && d.padAngle; // Note: optional!
+}
+
+function intersect$1(x0, y0, x1, y1, x2, y2, x3, y3) {
+  var x10 = x1 - x0, y10 = y1 - y0,
+      x32 = x3 - x2, y32 = y3 - y2,
+      t = (x32 * (y0 - y2) - y32 * (x0 - x2)) / (y32 * x10 - x32 * y10);
+  return [x0 + t * x10, y0 + t * y10];
+}
+
+// Compute perpendicular offset line of length rc.
+// http://mathworld.wolfram.com/Circle-LineIntersection.html
+function cornerTangents$1(x0, y0, x1, y1, r1, rc, cw) {
+  var x01 = x0 - x1,
+      y01 = y0 - y1,
+      lo = (cw ? rc : -rc) / sqrt$6(x01 * x01 + y01 * y01),
+      ox = lo * y01,
+      oy = -lo * x01,
+      x11 = x0 + ox,
+      y11 = y0 + oy,
+      x10 = x1 + ox,
+      y10 = y1 + oy,
+      x00 = (x11 + x10) / 2,
+      y00 = (y11 + y10) / 2,
+      dx = x10 - x11,
+      dy = y10 - y11,
+      d2 = dx * dx + dy * dy,
+      r = r1 - rc,
+      D = x11 * y10 - x10 * y11,
+      d = (dy < 0 ? -1 : 1) * sqrt$6(max$5(0, r * r * d2 - D * D)),
+      cx0 = (D * dy - dx * d) / d2,
+      cy0 = (-D * dx - dy * d) / d2,
+      cx1 = (D * dy + dx * d) / d2,
+      cy1 = (-D * dx + dy * d) / d2,
+      dx0 = cx0 - x00,
+      dy0 = cy0 - y00,
+      dx1 = cx1 - x00,
+      dy1 = cy1 - y00;
+
+  // Pick the closer of the two intersection points.
+  // TODO Is there a faster way to determine which intersection to use?
+  if (dx0 * dx0 + dy0 * dy0 > dx1 * dx1 + dy1 * dy1) cx0 = cx1, cy0 = cy1;
+
+  return {
+    cx: cx0,
+    cy: cy0,
+    x01: -ox,
+    y01: -oy,
+    x11: cx0 * (r1 / r - 1),
+    y11: cy0 * (r1 / r - 1)
+  };
+}
+
+function Linear$1(context) {
+  this._context = context;
+}
+
+Linear$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; // proceed
+      default: this._context.lineTo(x, y); break;
+    }
+  }
+};
+
+var curveLinear$1 = function(context) {
+  return new Linear$1(context);
+};
+
+function x$4(p) {
+  return p[0];
+}
+
+function y$4(p) {
+  return p[1];
+}
+
+var line$1 = function() {
+  var x$$1 = x$4,
+      y$$1 = y$4,
+      defined = constant$22(true),
+      context = null,
+      curve = curveLinear$1,
+      output = null;
+
+  function line(data) {
+    var i,
+        n = data.length,
+        d,
+        defined0 = false,
+        buffer;
+
+    if (context == null) output = curve(buffer = path());
+
+    for (i = 0; i <= n; ++i) {
+      if (!(i < n && defined(d = data[i], i, data)) === defined0) {
+        if (defined0 = !defined0) output.lineStart();
+        else output.lineEnd();
+      }
+      if (defined0) output.point(+x$$1(d, i, data), +y$$1(d, i, data));
+    }
+
+    if (buffer) return output = null, buffer + "" || null;
+  }
+
+  line.x = function(_) {
+    return arguments.length ? (x$$1 = typeof _ === "function" ? _ : constant$22(+_), line) : x$$1;
+  };
+
+  line.y = function(_) {
+    return arguments.length ? (y$$1 = typeof _ === "function" ? _ : constant$22(+_), line) : y$$1;
+  };
+
+  line.defined = function(_) {
+    return arguments.length ? (defined = typeof _ === "function" ? _ : constant$22(!!_), line) : defined;
+  };
+
+  line.curve = function(_) {
+    return arguments.length ? (curve = _, context != null && (output = curve(context)), line) : curve;
+  };
+
+  line.context = function(_) {
+    return arguments.length ? (_ == null ? context = output = null : output = curve(context = _), line) : context;
+  };
+
+  return line;
+};
+
+var area$4 = function() {
+  var x0 = x$4,
+      x1 = null,
+      y0 = constant$22(0),
+      y1 = y$4,
+      defined = constant$22(true),
+      context = null,
+      curve = curveLinear$1,
+      output = null;
+
+  function area(data) {
+    var i,
+        j,
+        k,
+        n = data.length,
+        d,
+        defined0 = false,
+        buffer,
+        x0z = new Array(n),
+        y0z = new Array(n);
+
+    if (context == null) output = curve(buffer = path());
+
+    for (i = 0; i <= n; ++i) {
+      if (!(i < n && defined(d = data[i], i, data)) === defined0) {
+        if (defined0 = !defined0) {
+          j = i;
+          output.areaStart();
+          output.lineStart();
+        } else {
+          output.lineEnd();
+          output.lineStart();
+          for (k = i - 1; k >= j; --k) {
+            output.point(x0z[k], y0z[k]);
+          }
+          output.lineEnd();
+          output.areaEnd();
+        }
+      }
+      if (defined0) {
+        x0z[i] = +x0(d, i, data), y0z[i] = +y0(d, i, data);
+        output.point(x1 ? +x1(d, i, data) : x0z[i], y1 ? +y1(d, i, data) : y0z[i]);
+      }
+    }
+
+    if (buffer) return output = null, buffer + "" || null;
+  }
+
+  function arealine() {
+    return line$1().defined(defined).curve(curve).context(context);
+  }
+
+  area.x = function(_) {
+    return arguments.length ? (x0 = typeof _ === "function" ? _ : constant$22(+_), x1 = null, area) : x0;
+  };
+
+  area.x0 = function(_) {
+    return arguments.length ? (x0 = typeof _ === "function" ? _ : constant$22(+_), area) : x0;
+  };
+
+  area.x1 = function(_) {
+    return arguments.length ? (x1 = _ == null ? null : typeof _ === "function" ? _ : constant$22(+_), area) : x1;
+  };
+
+  area.y = function(_) {
+    return arguments.length ? (y0 = typeof _ === "function" ? _ : constant$22(+_), y1 = null, area) : y0;
+  };
+
+  area.y0 = function(_) {
+    return arguments.length ? (y0 = typeof _ === "function" ? _ : constant$22(+_), area) : y0;
+  };
+
+  area.y1 = function(_) {
+    return arguments.length ? (y1 = _ == null ? null : typeof _ === "function" ? _ : constant$22(+_), area) : y1;
+  };
+
+  area.lineX0 =
+  area.lineY0 = function() {
+    return arealine().x(x0).y(y0);
+  };
+
+  area.lineY1 = function() {
+    return arealine().x(x0).y(y1);
+  };
+
+  area.lineX1 = function() {
+    return arealine().x(x1).y(y0);
+  };
+
+  area.defined = function(_) {
+    return arguments.length ? (defined = typeof _ === "function" ? _ : constant$22(!!_), area) : defined;
+  };
+
+  area.curve = function(_) {
+    return arguments.length ? (curve = _, context != null && (output = curve(context)), area) : curve;
+  };
+
+  area.context = function(_) {
+    return arguments.length ? (_ == null ? context = output = null : output = curve(context = _), area) : context;
+  };
+
+  return area;
+};
+
+var descending$5 = function(a, b) {
+  return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+};
+
+var identity$18 = function(d) {
+  return d;
+};
+
+var curveRadialLinear$1 = curveRadial$1(curveLinear$1);
+
+function Radial$1(curve) {
+  this._curve = curve;
+}
+
+Radial$1.prototype = {
+  areaStart: function() {
+    this._curve.areaStart();
+  },
+  areaEnd: function() {
+    this._curve.areaEnd();
+  },
+  lineStart: function() {
+    this._curve.lineStart();
+  },
+  lineEnd: function() {
+    this._curve.lineEnd();
+  },
+  point: function(a, r) {
+    this._curve.point(r * Math.sin(a), r * -Math.cos(a));
+  }
+};
+
+function curveRadial$1(curve) {
+
+  function radial(context) {
+    return new Radial$1(curve(context));
+  }
+
+  radial._curve = curve;
+
+  return radial;
+}
+
+function radialLine$2(l) {
+  var c = l.curve;
+
+  l.angle = l.x, delete l.x;
+  l.radius = l.y, delete l.y;
+
+  l.curve = function(_) {
+    return arguments.length ? c(curveRadial$1(_)) : c()._curve;
+  };
+
+  return l;
+}
+
+var slice$11 = Array.prototype.slice;
+
+var radialPoint = function(x, y) {
+  return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
+};
+
+function linkSource(d) {
+  return d.source;
+}
+
+function linkTarget(d) {
+  return d.target;
+}
+
+function link$3(curve) {
+  var source = linkSource,
+      target = linkTarget,
+      x$$1 = x$4,
+      y$$1 = y$4,
+      context = null;
+
+  function link() {
+    var buffer, argv = slice$11.call(arguments), s = source.apply(this, argv), t = target.apply(this, argv);
+    if (!context) context = buffer = path();
+    curve(context, +x$$1.apply(this, (argv[0] = s, argv)), +y$$1.apply(this, argv), +x$$1.apply(this, (argv[0] = t, argv)), +y$$1.apply(this, argv));
+    if (buffer) return context = null, buffer + "" || null;
+  }
+
+  link.source = function(_) {
+    return arguments.length ? (source = _, link) : source;
+  };
+
+  link.target = function(_) {
+    return arguments.length ? (target = _, link) : target;
+  };
+
+  link.x = function(_) {
+    return arguments.length ? (x$$1 = typeof _ === "function" ? _ : constant$22(+_), link) : x$$1;
+  };
+
+  link.y = function(_) {
+    return arguments.length ? (y$$1 = typeof _ === "function" ? _ : constant$22(+_), link) : y$$1;
+  };
+
+  link.context = function(_) {
+    return arguments.length ? ((context = _ == null ? null : _), link) : context;
+  };
+
+  return link;
+}
+
+function curveRadial$2(context, x0, y0, x1, y1) {
+  var p0 = radialPoint(x0, y0),
+      p1 = radialPoint(x0, y0 = (y0 + y1) / 2),
+      p2 = radialPoint(x1, y0),
+      p3 = radialPoint(x1, y1);
+  context.moveTo(p0[0], p0[1]);
+  context.bezierCurveTo(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1]);
+}
+
+var circle$5 = {
+  draw: function(context, size) {
+    var r = Math.sqrt(size / pi$6);
+    context.moveTo(r, 0);
+    context.arc(0, 0, r, 0, tau$6);
+  }
+};
+
+var noop$5 = function() {};
+
+function point$10(that, x, y) {
+  that._context.bezierCurveTo(
+    (2 * that._x0 + that._x1) / 3,
+    (2 * that._y0 + that._y1) / 3,
+    (that._x0 + 2 * that._x1) / 3,
+    (that._y0 + 2 * that._y1) / 3,
+    (that._x0 + 4 * that._x1 + x) / 6,
+    (that._y0 + 4 * that._y1 + y) / 6
+  );
+}
+
+function Basis$1(context) {
+  this._context = context;
+}
+
+Basis$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 =
+    this._y0 = this._y1 = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 3: point$10(this, this._x1, this._y1); // proceed
+      case 2: this._context.lineTo(this._x1, this._y1); break;
+    }
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; break;
+      case 2: this._point = 3; this._context.lineTo((5 * this._x0 + this._x1) / 6, (5 * this._y0 + this._y1) / 6); // proceed
+      default: point$10(this, x, y); break;
+    }
+    this._x0 = this._x1, this._x1 = x;
+    this._y0 = this._y1, this._y1 = y;
+  }
+};
+
+function Bundle$1(context, beta) {
+  this._basis = new Basis$1(context);
+  this._beta = beta;
+}
+
+Bundle$1.prototype = {
+  lineStart: function() {
+    this._x = [];
+    this._y = [];
+    this._basis.lineStart();
+  },
+  lineEnd: function() {
+    var x = this._x,
+        y = this._y,
+        j = x.length - 1;
+
+    if (j > 0) {
+      var x0 = x[0],
+          y0 = y[0],
+          dx = x[j] - x0,
+          dy = y[j] - y0,
+          i = -1,
+          t;
+
+      while (++i <= j) {
+        t = i / j;
+        this._basis.point(
+          this._beta * x[i] + (1 - this._beta) * (x0 + t * dx),
+          this._beta * y[i] + (1 - this._beta) * (y0 + t * dy)
+        );
+      }
+    }
+
+    this._x = this._y = null;
+    this._basis.lineEnd();
+  },
+  point: function(x, y) {
+    this._x.push(+x);
+    this._y.push(+y);
+  }
+};
+
+(function custom(beta) {
+
+  function bundle(context) {
+    return beta === 1 ? new Basis$1(context) : new Bundle$1(context, beta);
+  }
+
+  bundle.beta = function(beta) {
+    return custom(+beta);
+  };
+
+  return bundle;
+})(0.85);
+
+function point$11(that, x, y) {
+  that._context.bezierCurveTo(
+    that._x1 + that._k * (that._x2 - that._x0),
+    that._y1 + that._k * (that._y2 - that._y0),
+    that._x2 + that._k * (that._x1 - x),
+    that._y2 + that._k * (that._y1 - y),
+    that._x2,
+    that._y2
+  );
+}
+
+function Cardinal$1(context, tension) {
+  this._context = context;
+  this._k = (1 - tension) / 6;
+}
+
+Cardinal$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 =
+    this._y0 = this._y1 = this._y2 = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 2: this._context.lineTo(this._x2, this._y2); break;
+      case 3: point$11(this, this._x1, this._y1); break;
+    }
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; this._x1 = x, this._y1 = y; break;
+      case 2: this._point = 3; // proceed
+      default: point$11(this, x, y); break;
+    }
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(tension) {
+
+  function cardinal(context) {
+    return new Cardinal$1(context, tension);
+  }
+
+  cardinal.tension = function(tension) {
+    return custom(+tension);
+  };
+
+  return cardinal;
+})(0);
+
+function CardinalClosed$1(context, tension) {
+  this._context = context;
+  this._k = (1 - tension) / 6;
+}
+
+CardinalClosed$1.prototype = {
+  areaStart: noop$5,
+  areaEnd: noop$5,
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 = this._x3 = this._x4 = this._x5 =
+    this._y0 = this._y1 = this._y2 = this._y3 = this._y4 = this._y5 = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 1: {
+        this._context.moveTo(this._x3, this._y3);
+        this._context.closePath();
+        break;
+      }
+      case 2: {
+        this._context.lineTo(this._x3, this._y3);
+        this._context.closePath();
+        break;
+      }
+      case 3: {
+        this.point(this._x3, this._y3);
+        this.point(this._x4, this._y4);
+        this.point(this._x5, this._y5);
+        break;
+      }
+    }
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; this._x3 = x, this._y3 = y; break;
+      case 1: this._point = 2; this._context.moveTo(this._x4 = x, this._y4 = y); break;
+      case 2: this._point = 3; this._x5 = x, this._y5 = y; break;
+      default: point$11(this, x, y); break;
+    }
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(tension) {
+
+  function cardinal(context) {
+    return new CardinalClosed$1(context, tension);
+  }
+
+  cardinal.tension = function(tension) {
+    return custom(+tension);
+  };
+
+  return cardinal;
+})(0);
+
+function CardinalOpen$1(context, tension) {
+  this._context = context;
+  this._k = (1 - tension) / 6;
+}
+
+CardinalOpen$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 =
+    this._y0 = this._y1 = this._y2 = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (this._line || (this._line !== 0 && this._point === 3)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+    switch (this._point) {
+      case 0: this._point = 1; break;
+      case 1: this._point = 2; break;
+      case 2: this._point = 3; this._line ? this._context.lineTo(this._x2, this._y2) : this._context.moveTo(this._x2, this._y2); break;
+      case 3: this._point = 4; // proceed
+      default: point$11(this, x, y); break;
+    }
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(tension) {
+
+  function cardinal(context) {
+    return new CardinalOpen$1(context, tension);
+  }
+
+  cardinal.tension = function(tension) {
+    return custom(+tension);
+  };
+
+  return cardinal;
+})(0);
+
+function point$12(that, x, y) {
+  var x1 = that._x1,
+      y1 = that._y1,
+      x2 = that._x2,
+      y2 = that._y2;
+
+  if (that._l01_a > epsilon$6) {
+    var a = 2 * that._l01_2a + 3 * that._l01_a * that._l12_a + that._l12_2a,
+        n = 3 * that._l01_a * (that._l01_a + that._l12_a);
+    x1 = (x1 * a - that._x0 * that._l12_2a + that._x2 * that._l01_2a) / n;
+    y1 = (y1 * a - that._y0 * that._l12_2a + that._y2 * that._l01_2a) / n;
+  }
+
+  if (that._l23_a > epsilon$6) {
+    var b = 2 * that._l23_2a + 3 * that._l23_a * that._l12_a + that._l12_2a,
+        m = 3 * that._l23_a * (that._l23_a + that._l12_a);
+    x2 = (x2 * b + that._x1 * that._l23_2a - x * that._l12_2a) / m;
+    y2 = (y2 * b + that._y1 * that._l23_2a - y * that._l12_2a) / m;
+  }
+
+  that._context.bezierCurveTo(x1, y1, x2, y2, that._x2, that._y2);
+}
+
+function CatmullRom$1(context, alpha) {
+  this._context = context;
+  this._alpha = alpha;
+}
+
+CatmullRom$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 =
+    this._y0 = this._y1 = this._y2 = NaN;
+    this._l01_a = this._l12_a = this._l23_a =
+    this._l01_2a = this._l12_2a = this._l23_2a =
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 2: this._context.lineTo(this._x2, this._y2); break;
+      case 3: this.point(this._x2, this._y2); break;
+    }
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+
+    if (this._point) {
+      var x23 = this._x2 - x,
+          y23 = this._y2 - y;
+      this._l23_a = Math.sqrt(this._l23_2a = Math.pow(x23 * x23 + y23 * y23, this._alpha));
+    }
+
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; break;
+      case 2: this._point = 3; // proceed
+      default: point$12(this, x, y); break;
+    }
+
+    this._l01_a = this._l12_a, this._l12_a = this._l23_a;
+    this._l01_2a = this._l12_2a, this._l12_2a = this._l23_2a;
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(alpha) {
+
+  function catmullRom(context) {
+    return alpha ? new CatmullRom$1(context, alpha) : new Cardinal$1(context, 0);
+  }
+
+  catmullRom.alpha = function(alpha) {
+    return custom(+alpha);
+  };
+
+  return catmullRom;
+})(0.5);
+
+function CatmullRomClosed$1(context, alpha) {
+  this._context = context;
+  this._alpha = alpha;
+}
+
+CatmullRomClosed$1.prototype = {
+  areaStart: noop$5,
+  areaEnd: noop$5,
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 = this._x3 = this._x4 = this._x5 =
+    this._y0 = this._y1 = this._y2 = this._y3 = this._y4 = this._y5 = NaN;
+    this._l01_a = this._l12_a = this._l23_a =
+    this._l01_2a = this._l12_2a = this._l23_2a =
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 1: {
+        this._context.moveTo(this._x3, this._y3);
+        this._context.closePath();
+        break;
+      }
+      case 2: {
+        this._context.lineTo(this._x3, this._y3);
+        this._context.closePath();
+        break;
+      }
+      case 3: {
+        this.point(this._x3, this._y3);
+        this.point(this._x4, this._y4);
+        this.point(this._x5, this._y5);
+        break;
+      }
+    }
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+
+    if (this._point) {
+      var x23 = this._x2 - x,
+          y23 = this._y2 - y;
+      this._l23_a = Math.sqrt(this._l23_2a = Math.pow(x23 * x23 + y23 * y23, this._alpha));
+    }
+
+    switch (this._point) {
+      case 0: this._point = 1; this._x3 = x, this._y3 = y; break;
+      case 1: this._point = 2; this._context.moveTo(this._x4 = x, this._y4 = y); break;
+      case 2: this._point = 3; this._x5 = x, this._y5 = y; break;
+      default: point$12(this, x, y); break;
+    }
+
+    this._l01_a = this._l12_a, this._l12_a = this._l23_a;
+    this._l01_2a = this._l12_2a, this._l12_2a = this._l23_2a;
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(alpha) {
+
+  function catmullRom(context) {
+    return alpha ? new CatmullRomClosed$1(context, alpha) : new CardinalClosed$1(context, 0);
+  }
+
+  catmullRom.alpha = function(alpha) {
+    return custom(+alpha);
+  };
+
+  return catmullRom;
+})(0.5);
+
+function CatmullRomOpen$1(context, alpha) {
+  this._context = context;
+  this._alpha = alpha;
+}
+
+CatmullRomOpen$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 = this._x2 =
+    this._y0 = this._y1 = this._y2 = NaN;
+    this._l01_a = this._l12_a = this._l23_a =
+    this._l01_2a = this._l12_2a = this._l23_2a =
+    this._point = 0;
+  },
+  lineEnd: function() {
+    if (this._line || (this._line !== 0 && this._point === 3)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    x = +x, y = +y;
+
+    if (this._point) {
+      var x23 = this._x2 - x,
+          y23 = this._y2 - y;
+      this._l23_a = Math.sqrt(this._l23_2a = Math.pow(x23 * x23 + y23 * y23, this._alpha));
+    }
+
+    switch (this._point) {
+      case 0: this._point = 1; break;
+      case 1: this._point = 2; break;
+      case 2: this._point = 3; this._line ? this._context.lineTo(this._x2, this._y2) : this._context.moveTo(this._x2, this._y2); break;
+      case 3: this._point = 4; // proceed
+      default: point$12(this, x, y); break;
+    }
+
+    this._l01_a = this._l12_a, this._l12_a = this._l23_a;
+    this._l01_2a = this._l12_2a, this._l12_2a = this._l23_2a;
+    this._x0 = this._x1, this._x1 = this._x2, this._x2 = x;
+    this._y0 = this._y1, this._y1 = this._y2, this._y2 = y;
+  }
+};
+
+(function custom(alpha) {
+
+  function catmullRom(context) {
+    return alpha ? new CatmullRomOpen$1(context, alpha) : new CardinalOpen$1(context, 0);
+  }
+
+  catmullRom.alpha = function(alpha) {
+    return custom(+alpha);
+  };
+
+  return catmullRom;
+})(0.5);
+
+function sign$3(x) {
+  return x < 0 ? -1 : 1;
+}
+
+// Calculate the slopes of the tangents (Hermite-type interpolation) based on
+// the following paper: Steffen, M. 1990. A Simple Method for Monotonic
+// Interpolation in One Dimension. Astronomy and Astrophysics, Vol. 239, NO.
+// NOV(II), P. 443, 1990.
+function slope3$1(that, x2, y2) {
+  var h0 = that._x1 - that._x0,
+      h1 = x2 - that._x1,
+      s0 = (that._y1 - that._y0) / (h0 || h1 < 0 && -0),
+      s1 = (y2 - that._y1) / (h1 || h0 < 0 && -0),
+      p = (s0 * h1 + s1 * h0) / (h0 + h1);
+  return (sign$3(s0) + sign$3(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0;
+}
+
+// Calculate a one-sided slope.
+function slope2$1(that, t) {
+  var h = that._x1 - that._x0;
+  return h ? (3 * (that._y1 - that._y0) / h - t) / 2 : t;
+}
+
+// According to https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Representations
+// "you can express cubic Hermite interpolation in terms of cubic Bézier curves
+// with respect to the four values p0, p0 + m0 / 3, p1 - m1 / 3, p1".
+function point$13(that, t0, t1) {
+  var x0 = that._x0,
+      y0 = that._y0,
+      x1 = that._x1,
+      y1 = that._y1,
+      dx = (x1 - x0) / 3;
+  that._context.bezierCurveTo(x0 + dx, y0 + dx * t0, x1 - dx, y1 - dx * t1, x1, y1);
+}
+
+function MonotoneX$1(context) {
+  this._context = context;
+}
+
+MonotoneX$1.prototype = {
+  areaStart: function() {
+    this._line = 0;
+  },
+  areaEnd: function() {
+    this._line = NaN;
+  },
+  lineStart: function() {
+    this._x0 = this._x1 =
+    this._y0 = this._y1 =
+    this._t0 = NaN;
+    this._point = 0;
+  },
+  lineEnd: function() {
+    switch (this._point) {
+      case 2: this._context.lineTo(this._x1, this._y1); break;
+      case 3: point$13(this, this._t0, slope2$1(this, this._t0)); break;
+    }
+    if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+    this._line = 1 - this._line;
+  },
+  point: function(x, y) {
+    var t1 = NaN;
+
+    x = +x, y = +y;
+    if (x === this._x1 && y === this._y1) return; // Ignore coincident points.
+    switch (this._point) {
+      case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+      case 1: this._point = 2; break;
+      case 2: this._point = 3; point$13(this, slope2$1(this, t1 = slope3$1(this, x, y)), t1); break;
+      default: point$13(this, this._t0, t1 = slope3$1(this, x, y)); break;
+    }
+
+    this._x0 = this._x1, this._x1 = x;
+    this._y0 = this._y1, this._y1 = y;
+    this._t0 = t1;
+  }
+};
+
+function MonotoneY$1(context) {
+  this._context = new ReflectContext$1(context);
+}
+
+(MonotoneY$1.prototype = Object.create(MonotoneX$1.prototype)).point = function(x, y) {
+  MonotoneX$1.prototype.point.call(this, y, x);
+};
+
+function ReflectContext$1(context) {
+  this._context = context;
+}
+
+ReflectContext$1.prototype = {
+  moveTo: function(x, y) { this._context.moveTo(y, x); },
+  closePath: function() { this._context.closePath(); },
+  lineTo: function(x, y) { this._context.lineTo(y, x); },
+  bezierCurveTo: function(x1, y1, x2, y2, x, y) { this._context.bezierCurveTo(y1, x1, y2, x2, y, x); }
+};
+
+// See https://www.particleincell.com/2012/bezier-splines/ for derivation.
+function controlPoints$1(x) {
+  var i,
+      n = x.length - 1,
+      m,
+      a = new Array(n),
+      b = new Array(n),
+      r = new Array(n);
+  a[0] = 0, b[0] = 2, r[0] = x[0] + 2 * x[1];
+  for (i = 1; i < n - 1; ++i) a[i] = 1, b[i] = 4, r[i] = 4 * x[i] + 2 * x[i + 1];
+  a[n - 1] = 2, b[n - 1] = 7, r[n - 1] = 8 * x[n - 1] + x[n];
+  for (i = 1; i < n; ++i) m = a[i] / b[i - 1], b[i] -= m, r[i] -= m * r[i - 1];
+  a[n - 1] = r[n - 1] / b[n - 1];
+  for (i = n - 2; i >= 0; --i) a[i] = (r[i] - a[i + 1]) / b[i];
+  b[n - 1] = (x[n] + a[n - 1]) / 2;
+  for (i = 0; i < n - 1; ++i) b[i] = 2 * x[i + 1] - a[i + 1];
+  return [a, b];
+}
+
+var none$5 = function(series, order) {
+  if (!((n = series.length) > 1)) return;
+  for (var i = 1, j, s0, s1 = series[order[0]], n, m = s1.length; i < n; ++i) {
+    s0 = s1, s1 = series[order[i]];
+    for (j = 0; j < m; ++j) {
+      s1[j][1] += s1[j][0] = isNaN(s0[j][1]) ? s0[j][0] : s0[j][1];
+    }
+  }
+};
+
+var none$6 = function(series) {
+  var n = series.length, o = new Array(n);
+  while (--n >= 0) o[n] = n;
+  return o;
+};
+
+function stackValue$1(d, key) {
+  return d[key];
+}
+
+function sum$6(series) {
+  var s = 0, i = -1, n = series.length, v;
+  while (++i < n) if (v = +series[i][1]) s += v;
+  return s;
+}
+
+var emptyOn$1 = dispatch("start", "end", "interrupt");
+var emptyTween$1 = [];
+
+var CREATED$1 = 0;
+var SCHEDULED$1 = 1;
+var STARTING$1 = 2;
+var STARTED$1 = 3;
+var RUNNING$1 = 4;
+var ENDING$1 = 5;
+var ENDED$1 = 6;
+
+var schedule$1 = function(node, name, id, index, group, timing) {
+  var schedules = node.__transition;
+  if (!schedules) node.__transition = {};
+  else if (id in schedules) return;
+  create$1(node, id, {
+    name: name,
+    index: index, // For context during callback.
+    group: group, // For context during callback.
+    on: emptyOn$1,
+    tween: emptyTween$1,
+    time: timing.time,
+    delay: timing.delay,
+    duration: timing.duration,
+    ease: timing.ease,
+    timer: null,
+    state: CREATED$1
+  });
+};
+
+function init$1(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id]) || schedule.state > CREATED$1) throw new Error("too late");
+  return schedule;
+}
+
+function set$5(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id]) || schedule.state > STARTING$1) throw new Error("too late");
+  return schedule;
+}
+
+function get$3(node, id) {
+  var schedule = node.__transition;
+  if (!schedule || !(schedule = schedule[id])) throw new Error("too late");
+  return schedule;
+}
+
+function create$1(node, id, self) {
+  var schedules = node.__transition,
+      tween;
+
+  // Initialize the self timer when the transition is created.
+  // Note the actual delay is not known until the first callback!
+  schedules[id] = self;
+  self.timer = timer(schedule, 0, self.time);
+
+  function schedule(elapsed) {
+    self.state = SCHEDULED$1;
+    self.timer.restart(start, self.delay, self.time);
+
+    // If the elapsed delay is less than our first sleep, start immediately.
+    if (self.delay <= elapsed) start(elapsed - self.delay);
+  }
+
+  function start(elapsed) {
+    var i, j, n, o;
+
+    // If the state is not SCHEDULED, then we previously errored on start.
+    if (self.state !== SCHEDULED$1) return stop();
+
+    for (i in schedules) {
+      o = schedules[i];
+      if (o.name !== self.name) continue;
+
+      // While this element already has a starting transition during this frame,
+      // defer starting an interrupting transition until that transition has a
+      // chance to tick (and possibly end); see d3/d3-transition#54!
+      if (o.state === STARTED$1) return timeout$1(start);
+
+      // Interrupt the active transition, if any.
+      // Dispatch the interrupt event.
+      if (o.state === RUNNING$1) {
+        o.state = ENDED$1;
+        o.timer.stop();
+        o.on.call("interrupt", node, node.__data__, o.index, o.group);
+        delete schedules[i];
+      }
+
+      // Cancel any pre-empted transitions. No interrupt event is dispatched
+      // because the cancelled transitions never started. Note that this also
+      // removes this transition from the pending list!
+      else if (+i < id) {
+        o.state = ENDED$1;
+        o.timer.stop();
+        delete schedules[i];
+      }
+    }
+
+    // Defer the first tick to end of the current frame; see d3/d3#1576.
+    // Note the transition may be canceled after start and before the first tick!
+    // Note this must be scheduled before the start event; see d3/d3-transition#16!
+    // Assuming this is successful, subsequent callbacks go straight to tick.
+    timeout$1(function() {
+      if (self.state === STARTED$1) {
+        self.state = RUNNING$1;
+        self.timer.restart(tick, self.delay, self.time);
+        tick(elapsed);
+      }
+    });
+
+    // Dispatch the start event.
+    // Note this must be done before the tween are initialized.
+    self.state = STARTING$1;
+    self.on.call("start", node, node.__data__, self.index, self.group);
+    if (self.state !== STARTING$1) return; // interrupted
+    self.state = STARTED$1;
+
+    // Initialize the tween, deleting null tween.
+    tween = new Array(n = self.tween.length);
+    for (i = 0, j = -1; i < n; ++i) {
+      if (o = self.tween[i].value.call(node, node.__data__, self.index, self.group)) {
+        tween[++j] = o;
+      }
+    }
+    tween.length = j + 1;
+  }
+
+  function tick(elapsed) {
+    var t = elapsed < self.duration ? self.ease.call(null, elapsed / self.duration) : (self.timer.restart(stop), self.state = ENDING$1, 1),
+        i = -1,
+        n = tween.length;
+
+    while (++i < n) {
+      tween[i].call(null, t);
+    }
+
+    // Dispatch the end event.
+    if (self.state === ENDING$1) {
+      self.on.call("end", node, node.__data__, self.index, self.group);
+      stop();
+    }
+  }
+
+  function stop() {
+    self.state = ENDED$1;
+    self.timer.stop();
+    delete schedules[id];
+    for (var i in schedules) return; // eslint-disable-line no-unused-vars
+    delete node.__transition;
+  }
+}
+
+var interrupt$1 = function(node, name) {
+  var schedules = node.__transition,
+      schedule,
+      active,
+      empty = true,
+      i;
+
+  if (!schedules) return;
+
+  name = name == null ? null : name + "";
+
+  for (i in schedules) {
+    if ((schedule = schedules[i]).name !== name) { empty = false; continue; }
+    active = schedule.state > STARTING$1 && schedule.state < ENDING$1;
+    schedule.state = ENDED$1;
+    schedule.timer.stop();
+    if (active) schedule.on.call("interrupt", node, node.__data__, schedule.index, schedule.group);
+    delete schedules[i];
+  }
+
+  if (empty) delete node.__transition;
+};
+
+var selection_interrupt$1 = function(name) {
+  return this.each(function() {
+    interrupt$1(this, name);
+  });
+};
+
+function tweenRemove$1(id, name) {
+  var tween0, tween1;
+  return function() {
+    var schedule = set$5(this, id),
+        tween = schedule.tween;
+
+    // If this node shared tween with the previous node,
+    // just assign the updated shared tween and we’re done!
+    // Otherwise, copy-on-write.
+    if (tween !== tween0) {
+      tween1 = tween0 = tween;
+      for (var i = 0, n = tween1.length; i < n; ++i) {
+        if (tween1[i].name === name) {
+          tween1 = tween1.slice();
+          tween1.splice(i, 1);
+          break;
+        }
+      }
+    }
+
+    schedule.tween = tween1;
+  };
+}
+
+function tweenFunction$1(id, name, value) {
+  var tween0, tween1;
+  if (typeof value !== "function") throw new Error;
+  return function() {
+    var schedule = set$5(this, id),
+        tween = schedule.tween;
+
+    // If this node shared tween with the previous node,
+    // just assign the updated shared tween and we’re done!
+    // Otherwise, copy-on-write.
+    if (tween !== tween0) {
+      tween1 = (tween0 = tween).slice();
+      for (var t = {name: name, value: value}, i = 0, n = tween1.length; i < n; ++i) {
+        if (tween1[i].name === name) {
+          tween1[i] = t;
+          break;
+        }
+      }
+      if (i === n) tween1.push(t);
+    }
+
+    schedule.tween = tween1;
+  };
+}
+
+var transition_tween$1 = function(name, value) {
+  var id = this._id;
+
+  name += "";
+
+  if (arguments.length < 2) {
+    var tween = get$3(this.node(), id).tween;
+    for (var i = 0, n = tween.length, t; i < n; ++i) {
+      if ((t = tween[i]).name === name) {
+        return t.value;
+      }
+    }
+    return null;
+  }
+
+  return this.each((value == null ? tweenRemove$1 : tweenFunction$1)(id, name, value));
+};
+
+function tweenValue$1(transition, name, value) {
+  var id = transition._id;
+
+  transition.each(function() {
+    var schedule = set$5(this, id);
+    (schedule.value || (schedule.value = {}))[name] = value.apply(this, arguments);
+  });
+
+  return function(node) {
+    return get$3(node, id).value[name];
+  };
+}
+
+var interpolate$3 = function(a, b) {
+  var c;
+  return (typeof b === "number" ? interpolateNumber
+      : b instanceof color ? interpolateRgb$1
+      : (c = color(b)) ? (b = c, interpolateRgb$1)
+      : interpolateString$1)(a, b);
+};
+
+function attrRemove$4(name) {
+  return function() {
+    this.removeAttribute(name);
+  };
+}
+
+function attrRemoveNS$4(fullname) {
+  return function() {
+    this.removeAttributeNS(fullname.space, fullname.local);
+  };
+}
+
+function attrConstant$4(name, interpolate$$1, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = this.getAttribute(name);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value1);
+  };
+}
+
+function attrConstantNS$4(fullname, interpolate$$1, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = this.getAttributeNS(fullname.space, fullname.local);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value1);
+  };
+}
+
+function attrFunction$4(name, interpolate$$1, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0, value1 = value(this);
+    if (value1 == null) return void this.removeAttribute(name);
+    value0 = this.getAttribute(name);
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+  };
+}
+
+function attrFunctionNS$4(fullname, interpolate$$1, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0, value1 = value(this);
+    if (value1 == null) return void this.removeAttributeNS(fullname.space, fullname.local);
+    value0 = this.getAttributeNS(fullname.space, fullname.local);
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+  };
+}
+
+var transition_attr$1 = function(name, value) {
+  var fullname = namespace$2(name), i = fullname === "transform" ? interpolateTransformSvg$1 : interpolate$3;
+  return this.attrTween(name, typeof value === "function"
+      ? (fullname.local ? attrFunctionNS$4 : attrFunction$4)(fullname, i, tweenValue$1(this, "attr." + name, value))
+      : value == null ? (fullname.local ? attrRemoveNS$4 : attrRemove$4)(fullname)
+      : (fullname.local ? attrConstantNS$4 : attrConstant$4)(fullname, i, value + ""));
+};
+
+function attrTweenNS$1(fullname, value) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.setAttributeNS(fullname.space, fullname.local, i(t));
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+function attrTween$1(name, value) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.setAttribute(name, i(t));
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+var transition_attrTween$1 = function(name, value) {
+  var key = "attr." + name;
+  if (arguments.length < 2) return (key = this.tween(key)) && key._value;
+  if (value == null) return this.tween(key, null);
+  if (typeof value !== "function") throw new Error;
+  var fullname = namespace$2(name);
+  return this.tween(key, (fullname.local ? attrTweenNS$1 : attrTween$1)(fullname, value));
+};
+
+function delayFunction$1(id, value) {
+  return function() {
+    init$1(this, id).delay = +value.apply(this, arguments);
+  };
+}
+
+function delayConstant$1(id, value) {
+  return value = +value, function() {
+    init$1(this, id).delay = value;
+  };
+}
+
+var transition_delay$1 = function(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each((typeof value === "function"
+          ? delayFunction$1
+          : delayConstant$1)(id, value))
+      : get$3(this.node(), id).delay;
+};
+
+function durationFunction$1(id, value) {
+  return function() {
+    set$5(this, id).duration = +value.apply(this, arguments);
+  };
+}
+
+function durationConstant$1(id, value) {
+  return value = +value, function() {
+    set$5(this, id).duration = value;
+  };
+}
+
+var transition_duration$1 = function(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each((typeof value === "function"
+          ? durationFunction$1
+          : durationConstant$1)(id, value))
+      : get$3(this.node(), id).duration;
+};
+
+function easeConstant$1(id, value) {
+  if (typeof value !== "function") throw new Error;
+  return function() {
+    set$5(this, id).ease = value;
+  };
+}
+
+var transition_ease$1 = function(value) {
+  var id = this._id;
+
+  return arguments.length
+      ? this.each(easeConstant$1(id, value))
+      : get$3(this.node(), id).ease;
+};
+
+var transition_filter$1 = function(match) {
+  if (typeof match !== "function") match = matcher$5(match);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
+      if ((node = group[i]) && match.call(node, node.__data__, i, group)) {
+        subgroup.push(node);
+      }
+    }
+  }
+
+  return new Transition$1(subgroups, this._parents, this._name, this._id);
+};
+
+var transition_merge$1 = function(transition) {
+  if (transition._id !== this._id) throw new Error;
+
+  for (var groups0 = this._groups, groups1 = transition._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
+    for (var group0 = groups0[j], group1 = groups1[j], n = group0.length, merge = merges[j] = new Array(n), node, i = 0; i < n; ++i) {
+      if (node = group0[i] || group1[i]) {
+        merge[i] = node;
+      }
+    }
+  }
+
+  for (; j < m0; ++j) {
+    merges[j] = groups0[j];
+  }
+
+  return new Transition$1(merges, this._parents, this._name, this._id);
+};
+
+function start$2(name) {
+  return (name + "").trim().split(/^|\s+/).every(function(t) {
+    var i = t.indexOf(".");
+    if (i >= 0) t = t.slice(0, i);
+    return !t || t === "start";
+  });
+}
+
+function onFunction$1(id, name, listener) {
+  var on0, on1, sit = start$2(name) ? init$1 : set$5;
+  return function() {
+    var schedule = sit(this, id),
+        on = schedule.on;
+
+    // If this node shared a dispatch with the previous node,
+    // just assign the updated shared dispatch and we’re done!
+    // Otherwise, copy-on-write.
+    if (on !== on0) (on1 = (on0 = on).copy()).on(name, listener);
+
+    schedule.on = on1;
+  };
+}
+
+var transition_on$1 = function(name, listener) {
+  var id = this._id;
+
+  return arguments.length < 2
+      ? get$3(this.node(), id).on.on(name)
+      : this.each(onFunction$1(id, name, listener));
+};
+
+function removeFunction$1(id) {
+  return function() {
+    var parent = this.parentNode;
+    for (var i in this.__transition) if (+i !== id) return;
+    if (parent) parent.removeChild(this);
+  };
+}
+
+var transition_remove$1 = function() {
+  return this.on("end.remove", removeFunction$1(this._id));
+};
+
+var transition_select$1 = function(select$$1) {
+  var name = this._name,
+      id = this._id;
+
+  if (typeof select$$1 !== "function") select$$1 = selector$2(select$$1);
+
+  for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, subgroup = subgroups[j] = new Array(n), node, subnode, i = 0; i < n; ++i) {
+      if ((node = group[i]) && (subnode = select$$1.call(node, node.__data__, i, group))) {
+        if ("__data__" in node) subnode.__data__ = node.__data__;
+        subgroup[i] = subnode;
+        schedule$1(subgroup[i], name, id, i, subgroup, get$3(node, id));
+      }
+    }
+  }
+
+  return new Transition$1(subgroups, this._parents, name, id);
+};
+
+var transition_selectAll$1 = function(select$$1) {
+  var name = this._name,
+      id = this._id;
+
+  if (typeof select$$1 !== "function") select$$1 = selectorAll$2(select$$1);
+
+  for (var groups = this._groups, m = groups.length, subgroups = [], parents = [], j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        for (var children = select$$1.call(node, node.__data__, i, group), child, inherit = get$3(node, id), k = 0, l = children.length; k < l; ++k) {
+          if (child = children[k]) {
+            schedule$1(child, name, id, k, children, inherit);
+          }
+        }
+        subgroups.push(children);
+        parents.push(node);
+      }
+    }
+  }
+
+  return new Transition$1(subgroups, parents, name, id);
+};
+
+var Selection$4 = selection$4.prototype.constructor;
+
+var transition_selection$1 = function() {
+  return new Selection$4(this._groups, this._parents);
+};
+
+function styleRemove$4(name, interpolate$$1) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0 = styleValue(this, name),
+        value1 = (this.style.removeProperty(name), styleValue(this, name));
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+  };
+}
+
+function styleRemoveEnd$1(name) {
+  return function() {
+    this.style.removeProperty(name);
+  };
+}
+
+function styleConstant$4(name, interpolate$$1, value1) {
+  var value00,
+      interpolate0;
+  return function() {
+    var value0 = styleValue(this, name);
+    return value0 === value1 ? null
+        : value0 === value00 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value1);
+  };
+}
+
+function styleFunction$4(name, interpolate$$1, value) {
+  var value00,
+      value10,
+      interpolate0;
+  return function() {
+    var value0 = styleValue(this, name),
+        value1 = value(this);
+    if (value1 == null) value1 = (this.style.removeProperty(name), styleValue(this, name));
+    return value0 === value1 ? null
+        : value0 === value00 && value1 === value10 ? interpolate0
+        : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+  };
+}
+
+var transition_style$1 = function(name, value, priority) {
+  var i = (name += "") === "transform" ? interpolateTransformCss$1 : interpolate$3;
+  return value == null ? this
+          .styleTween(name, styleRemove$4(name, i))
+          .on("end.style." + name, styleRemoveEnd$1(name))
+      : this.styleTween(name, typeof value === "function"
+          ? styleFunction$4(name, i, tweenValue$1(this, "style." + name, value))
+          : styleConstant$4(name, i, value + ""), priority);
+};
+
+function styleTween$1(name, value, priority) {
+  function tween() {
+    var node = this, i = value.apply(node, arguments);
+    return i && function(t) {
+      node.style.setProperty(name, i(t), priority);
+    };
+  }
+  tween._value = value;
+  return tween;
+}
+
+var transition_styleTween$1 = function(name, value, priority) {
+  var key = "style." + (name += "");
+  if (arguments.length < 2) return (key = this.tween(key)) && key._value;
+  if (value == null) return this.tween(key, null);
+  if (typeof value !== "function") throw new Error;
+  return this.tween(key, styleTween$1(name, value, priority == null ? "" : priority));
+};
+
+function textConstant$4(value) {
+  return function() {
+    this.textContent = value;
+  };
+}
+
+function textFunction$4(value) {
+  return function() {
+    var value1 = value(this);
+    this.textContent = value1 == null ? "" : value1;
+  };
+}
+
+var transition_text$1 = function(value) {
+  return this.tween("text", typeof value === "function"
+      ? textFunction$4(tweenValue$1(this, "text", value))
+      : textConstant$4(value == null ? "" : value + ""));
+};
+
+var transition_transition$1 = function() {
+  var name = this._name,
+      id0 = this._id,
+      id1 = newId$1();
+
+  for (var groups = this._groups, m = groups.length, j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        var inherit = get$3(node, id0);
+        schedule$1(node, name, id1, i, group, {
+          time: inherit.time + inherit.delay + inherit.duration,
+          delay: 0,
+          duration: inherit.duration,
+          ease: inherit.ease
+        });
+      }
+    }
+  }
+
+  return new Transition$1(groups, this._parents, name, id1);
+};
+
+var id$1 = 0;
+
+function Transition$1(groups, parents, name, id) {
+  this._groups = groups;
+  this._parents = parents;
+  this._name = name;
+  this._id = id;
+}
+
+function transition$1(name) {
+  return selection$4().transition(name);
+}
+
+function newId$1() {
+  return ++id$1;
+}
+
+var selection_prototype$1 = selection$4.prototype;
+
+Transition$1.prototype = transition$1.prototype = {
+  constructor: Transition$1,
+  select: transition_select$1,
+  selectAll: transition_selectAll$1,
+  filter: transition_filter$1,
+  merge: transition_merge$1,
+  selection: transition_selection$1,
+  transition: transition_transition$1,
+  call: selection_prototype$1.call,
+  nodes: selection_prototype$1.nodes,
+  node: selection_prototype$1.node,
+  size: selection_prototype$1.size,
+  empty: selection_prototype$1.empty,
+  each: selection_prototype$1.each,
+  on: transition_on$1,
+  attr: transition_attr$1,
+  attrTween: transition_attrTween$1,
+  style: transition_style$1,
+  styleTween: transition_styleTween$1,
+  text: transition_text$1,
+  remove: transition_remove$1,
+  tween: transition_tween$1,
+  delay: transition_delay$1,
+  duration: transition_duration$1,
+  ease: transition_ease$1
+};
+
+var defaultTiming$1 = {
+  time: null, // Set on use.
+  delay: 0,
+  duration: 250,
+  ease: cubicInOut
+};
+
+function inherit$1(node, id) {
+  var timing;
+  while (!(timing = node.__transition) || !(timing = timing[id])) {
+    if (!(node = node.parentNode)) {
+      return defaultTiming$1.time = now(), defaultTiming$1;
+    }
+  }
+  return timing;
+}
+
+var selection_transition$1 = function(name) {
+  var id,
+      timing;
+
+  if (name instanceof Transition$1) {
+    id = name._id, name = name._name;
+  } else {
+    id = newId$1(), (timing = defaultTiming$1).time = now(), name = name == null ? null : name + "";
+  }
+
+  for (var groups = this._groups, m = groups.length, j = 0; j < m; ++j) {
+    for (var group = groups[j], n = group.length, node, i = 0; i < n; ++i) {
+      if (node = group[i]) {
+        schedule$1(node, name, id, i, group, timing || inherit$1(node, id));
+      }
+    }
+  }
+
+  return new Transition$1(groups, this._parents, name, id);
+};
+
+selection$4.prototype.interrupt = selection_interrupt$1;
+selection$4.prototype.transition = selection_transition$1;
+
+var root$4 = [null];
+
+var constant$23 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function x$5(d) {
+  return d[0];
+}
+
+function y$5(d) {
+  return d[1];
+}
+
+function RedBlackTree() {
+  this._ = null; // root node
+}
+
+function RedBlackNode(node) {
+  node.U = // parent node
+  node.C = // color - true for red, false for black
+  node.L = // left node
+  node.R = // right node
+  node.P = // previous node
+  node.N = null; // next node
+}
+
+RedBlackTree.prototype = {
+  constructor: RedBlackTree,
+
+  insert: function(after, node) {
+    var parent, grandpa, uncle;
+
+    if (after) {
+      node.P = after;
+      node.N = after.N;
+      if (after.N) after.N.P = node;
+      after.N = node;
+      if (after.R) {
+        after = after.R;
+        while (after.L) after = after.L;
+        after.L = node;
+      } else {
+        after.R = node;
+      }
+      parent = after;
+    } else if (this._) {
+      after = RedBlackFirst(this._);
+      node.P = null;
+      node.N = after;
+      after.P = after.L = node;
+      parent = after;
+    } else {
+      node.P = node.N = null;
+      this._ = node;
+      parent = null;
+    }
+    node.L = node.R = null;
+    node.U = parent;
+    node.C = true;
+
+    after = node;
+    while (parent && parent.C) {
+      grandpa = parent.U;
+      if (parent === grandpa.L) {
+        uncle = grandpa.R;
+        if (uncle && uncle.C) {
+          parent.C = uncle.C = false;
+          grandpa.C = true;
+          after = grandpa;
+        } else {
+          if (after === parent.R) {
+            RedBlackRotateLeft(this, parent);
+            after = parent;
+            parent = after.U;
+          }
+          parent.C = false;
+          grandpa.C = true;
+          RedBlackRotateRight(this, grandpa);
+        }
+      } else {
+        uncle = grandpa.L;
+        if (uncle && uncle.C) {
+          parent.C = uncle.C = false;
+          grandpa.C = true;
+          after = grandpa;
+        } else {
+          if (after === parent.L) {
+            RedBlackRotateRight(this, parent);
+            after = parent;
+            parent = after.U;
+          }
+          parent.C = false;
+          grandpa.C = true;
+          RedBlackRotateLeft(this, grandpa);
+        }
+      }
+      parent = after.U;
+    }
+    this._.C = false;
+  },
+
+  remove: function(node) {
+    if (node.N) node.N.P = node.P;
+    if (node.P) node.P.N = node.N;
+    node.N = node.P = null;
+
+    var parent = node.U,
+        sibling,
+        left = node.L,
+        right = node.R,
+        next,
+        red;
+
+    if (!left) next = right;
+    else if (!right) next = left;
+    else next = RedBlackFirst(right);
+
+    if (parent) {
+      if (parent.L === node) parent.L = next;
+      else parent.R = next;
+    } else {
+      this._ = next;
+    }
+
+    if (left && right) {
+      red = next.C;
+      next.C = node.C;
+      next.L = left;
+      left.U = next;
+      if (next !== right) {
+        parent = next.U;
+        next.U = node.U;
+        node = next.R;
+        parent.L = node;
+        next.R = right;
+        right.U = next;
+      } else {
+        next.U = parent;
+        parent = next;
+        node = next.R;
+      }
+    } else {
+      red = node.C;
+      node = next;
+    }
+
+    if (node) node.U = parent;
+    if (red) return;
+    if (node && node.C) { node.C = false; return; }
+
+    do {
+      if (node === this._) break;
+      if (node === parent.L) {
+        sibling = parent.R;
+        if (sibling.C) {
+          sibling.C = false;
+          parent.C = true;
+          RedBlackRotateLeft(this, parent);
+          sibling = parent.R;
+        }
+        if ((sibling.L && sibling.L.C)
+            || (sibling.R && sibling.R.C)) {
+          if (!sibling.R || !sibling.R.C) {
+            sibling.L.C = false;
+            sibling.C = true;
+            RedBlackRotateRight(this, sibling);
+            sibling = parent.R;
+          }
+          sibling.C = parent.C;
+          parent.C = sibling.R.C = false;
+          RedBlackRotateLeft(this, parent);
+          node = this._;
+          break;
+        }
+      } else {
+        sibling = parent.L;
+        if (sibling.C) {
+          sibling.C = false;
+          parent.C = true;
+          RedBlackRotateRight(this, parent);
+          sibling = parent.L;
+        }
+        if ((sibling.L && sibling.L.C)
+          || (sibling.R && sibling.R.C)) {
+          if (!sibling.L || !sibling.L.C) {
+            sibling.R.C = false;
+            sibling.C = true;
+            RedBlackRotateLeft(this, sibling);
+            sibling = parent.L;
+          }
+          sibling.C = parent.C;
+          parent.C = sibling.L.C = false;
+          RedBlackRotateRight(this, parent);
+          node = this._;
+          break;
+        }
+      }
+      sibling.C = true;
+      node = parent;
+      parent = parent.U;
+    } while (!node.C);
+
+    if (node) node.C = false;
+  }
+};
+
+function RedBlackRotateLeft(tree, node) {
+  var p = node,
+      q = node.R,
+      parent = p.U;
+
+  if (parent) {
+    if (parent.L === p) parent.L = q;
+    else parent.R = q;
+  } else {
+    tree._ = q;
+  }
+
+  q.U = parent;
+  p.U = q;
+  p.R = q.L;
+  if (p.R) p.R.U = p;
+  q.L = p;
+}
+
+function RedBlackRotateRight(tree, node) {
+  var p = node,
+      q = node.L,
+      parent = p.U;
+
+  if (parent) {
+    if (parent.L === p) parent.L = q;
+    else parent.R = q;
+  } else {
+    tree._ = q;
+  }
+
+  q.U = parent;
+  p.U = q;
+  p.L = q.R;
+  if (p.L) p.L.U = p;
+  q.R = p;
+}
+
+function RedBlackFirst(node) {
+  while (node.L) node = node.L;
+  return node;
+}
+
+function createEdge(left, right, v0, v1) {
+  var edge = [null, null],
+      index = edges.push(edge) - 1;
+  edge.left = left;
+  edge.right = right;
+  if (v0) setEdgeEnd(edge, left, right, v0);
+  if (v1) setEdgeEnd(edge, right, left, v1);
+  cells[left.index].halfedges.push(index);
+  cells[right.index].halfedges.push(index);
+  return edge;
+}
+
+function createBorderEdge(left, v0, v1) {
+  var edge = [v0, v1];
+  edge.left = left;
+  return edge;
+}
+
+function setEdgeEnd(edge, left, right, vertex) {
+  if (!edge[0] && !edge[1]) {
+    edge[0] = vertex;
+    edge.left = left;
+    edge.right = right;
+  } else if (edge.left === right) {
+    edge[1] = vertex;
+  } else {
+    edge[0] = vertex;
+  }
+}
+
+// Liang–Barsky line clipping.
+function clipEdge(edge, x0, y0, x1, y1) {
+  var a = edge[0],
+      b = edge[1],
+      ax = a[0],
+      ay = a[1],
+      bx = b[0],
+      by = b[1],
+      t0 = 0,
+      t1 = 1,
+      dx = bx - ax,
+      dy = by - ay,
+      r;
+
+  r = x0 - ax;
+  if (!dx && r > 0) return;
+  r /= dx;
+  if (dx < 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  } else if (dx > 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  }
+
+  r = x1 - ax;
+  if (!dx && r < 0) return;
+  r /= dx;
+  if (dx < 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  } else if (dx > 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  }
+
+  r = y0 - ay;
+  if (!dy && r > 0) return;
+  r /= dy;
+  if (dy < 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  } else if (dy > 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  }
+
+  r = y1 - ay;
+  if (!dy && r < 0) return;
+  r /= dy;
+  if (dy < 0) {
+    if (r > t1) return;
+    if (r > t0) t0 = r;
+  } else if (dy > 0) {
+    if (r < t0) return;
+    if (r < t1) t1 = r;
+  }
+
+  if (!(t0 > 0) && !(t1 < 1)) return true; // TODO Better check?
+
+  if (t0 > 0) edge[0] = [ax + t0 * dx, ay + t0 * dy];
+  if (t1 < 1) edge[1] = [ax + t1 * dx, ay + t1 * dy];
+  return true;
+}
+
+function connectEdge(edge, x0, y0, x1, y1) {
+  var v1 = edge[1];
+  if (v1) return true;
+
+  var v0 = edge[0],
+      left = edge.left,
+      right = edge.right,
+      lx = left[0],
+      ly = left[1],
+      rx = right[0],
+      ry = right[1],
+      fx = (lx + rx) / 2,
+      fy = (ly + ry) / 2,
+      fm,
+      fb;
+
+  if (ry === ly) {
+    if (fx < x0 || fx >= x1) return;
+    if (lx > rx) {
+      if (!v0) v0 = [fx, y0];
+      else if (v0[1] >= y1) return;
+      v1 = [fx, y1];
+    } else {
+      if (!v0) v0 = [fx, y1];
+      else if (v0[1] < y0) return;
+      v1 = [fx, y0];
+    }
+  } else {
+    fm = (lx - rx) / (ry - ly);
+    fb = fy - fm * fx;
+    if (fm < -1 || fm > 1) {
+      if (lx > rx) {
+        if (!v0) v0 = [(y0 - fb) / fm, y0];
+        else if (v0[1] >= y1) return;
+        v1 = [(y1 - fb) / fm, y1];
+      } else {
+        if (!v0) v0 = [(y1 - fb) / fm, y1];
+        else if (v0[1] < y0) return;
+        v1 = [(y0 - fb) / fm, y0];
+      }
+    } else {
+      if (ly < ry) {
+        if (!v0) v0 = [x0, fm * x0 + fb];
+        else if (v0[0] >= x1) return;
+        v1 = [x1, fm * x1 + fb];
+      } else {
+        if (!v0) v0 = [x1, fm * x1 + fb];
+        else if (v0[0] < x0) return;
+        v1 = [x0, fm * x0 + fb];
+      }
+    }
+  }
+
+  edge[0] = v0;
+  edge[1] = v1;
+  return true;
+}
+
+function clipEdges(x0, y0, x1, y1) {
+  var i = edges.length,
+      edge;
+
+  while (i--) {
+    if (!connectEdge(edge = edges[i], x0, y0, x1, y1)
+        || !clipEdge(edge, x0, y0, x1, y1)
+        || !(Math.abs(edge[0][0] - edge[1][0]) > epsilon$7
+            || Math.abs(edge[0][1] - edge[1][1]) > epsilon$7)) {
+      delete edges[i];
+    }
+  }
+}
+
+function createCell(site) {
+  return cells[site.index] = {
+    site: site,
+    halfedges: []
+  };
+}
+
+function cellHalfedgeAngle(cell, edge) {
+  var site = cell.site,
+      va = edge.left,
+      vb = edge.right;
+  if (site === vb) vb = va, va = site;
+  if (vb) return Math.atan2(vb[1] - va[1], vb[0] - va[0]);
+  if (site === va) va = edge[1], vb = edge[0];
+  else va = edge[0], vb = edge[1];
+  return Math.atan2(va[0] - vb[0], vb[1] - va[1]);
+}
+
+function cellHalfedgeStart(cell, edge) {
+  return edge[+(edge.left !== cell.site)];
+}
+
+function cellHalfedgeEnd(cell, edge) {
+  return edge[+(edge.left === cell.site)];
+}
+
+function sortCellHalfedges() {
+  for (var i = 0, n = cells.length, cell, halfedges, j, m; i < n; ++i) {
+    if ((cell = cells[i]) && (m = (halfedges = cell.halfedges).length)) {
+      var index = new Array(m),
+          array = new Array(m);
+      for (j = 0; j < m; ++j) index[j] = j, array[j] = cellHalfedgeAngle(cell, edges[halfedges[j]]);
+      index.sort(function(i, j) { return array[j] - array[i]; });
+      for (j = 0; j < m; ++j) array[j] = halfedges[index[j]];
+      for (j = 0; j < m; ++j) halfedges[j] = array[j];
+    }
+  }
+}
+
+function clipCells(x0, y0, x1, y1) {
+  var nCells = cells.length,
+      iCell,
+      cell,
+      site,
+      iHalfedge,
+      halfedges,
+      nHalfedges,
+      start,
+      startX,
+      startY,
+      end,
+      endX,
+      endY,
+      cover = true;
+
+  for (iCell = 0; iCell < nCells; ++iCell) {
+    if (cell = cells[iCell]) {
+      site = cell.site;
+      halfedges = cell.halfedges;
+      iHalfedge = halfedges.length;
+
+      // Remove any dangling clipped edges.
+      while (iHalfedge--) {
+        if (!edges[halfedges[iHalfedge]]) {
+          halfedges.splice(iHalfedge, 1);
+        }
+      }
+
+      // Insert any border edges as necessary.
+      iHalfedge = 0, nHalfedges = halfedges.length;
+      while (iHalfedge < nHalfedges) {
+        end = cellHalfedgeEnd(cell, edges[halfedges[iHalfedge]]), endX = end[0], endY = end[1];
+        start = cellHalfedgeStart(cell, edges[halfedges[++iHalfedge % nHalfedges]]), startX = start[0], startY = start[1];
+        if (Math.abs(endX - startX) > epsilon$7 || Math.abs(endY - startY) > epsilon$7) {
+          halfedges.splice(iHalfedge, 0, edges.push(createBorderEdge(site, end,
+              Math.abs(endX - x0) < epsilon$7 && y1 - endY > epsilon$7 ? [x0, Math.abs(startX - x0) < epsilon$7 ? startY : y1]
+              : Math.abs(endY - y1) < epsilon$7 && x1 - endX > epsilon$7 ? [Math.abs(startY - y1) < epsilon$7 ? startX : x1, y1]
+              : Math.abs(endX - x1) < epsilon$7 && endY - y0 > epsilon$7 ? [x1, Math.abs(startX - x1) < epsilon$7 ? startY : y0]
+              : Math.abs(endY - y0) < epsilon$7 && endX - x0 > epsilon$7 ? [Math.abs(startY - y0) < epsilon$7 ? startX : x0, y0]
+              : null)) - 1);
+          ++nHalfedges;
+        }
+      }
+
+      if (nHalfedges) cover = false;
+    }
+  }
+
+  // If there weren’t any edges, have the closest site cover the extent.
+  // It doesn’t matter which corner of the extent we measure!
+  if (cover) {
+    var dx, dy, d2, dc = Infinity;
+
+    for (iCell = 0, cover = null; iCell < nCells; ++iCell) {
+      if (cell = cells[iCell]) {
+        site = cell.site;
+        dx = site[0] - x0;
+        dy = site[1] - y0;
+        d2 = dx * dx + dy * dy;
+        if (d2 < dc) dc = d2, cover = cell;
+      }
+    }
+
+    if (cover) {
+      var v00 = [x0, y0], v01 = [x0, y1], v11 = [x1, y1], v10 = [x1, y0];
+      cover.halfedges.push(
+        edges.push(createBorderEdge(site = cover.site, v00, v01)) - 1,
+        edges.push(createBorderEdge(site, v01, v11)) - 1,
+        edges.push(createBorderEdge(site, v11, v10)) - 1,
+        edges.push(createBorderEdge(site, v10, v00)) - 1
+      );
+    }
+  }
+
+  // Lastly delete any cells with no edges; these were entirely clipped.
+  for (iCell = 0; iCell < nCells; ++iCell) {
+    if (cell = cells[iCell]) {
+      if (!cell.halfedges.length) {
+        delete cells[iCell];
+      }
+    }
+  }
+}
+
+var circlePool = [];
+
+var firstCircle;
+
+function Circle() {
+  RedBlackNode(this);
+  this.x =
+  this.y =
+  this.arc =
+  this.site =
+  this.cy = null;
+}
+
+function attachCircle(arc) {
+  var lArc = arc.P,
+      rArc = arc.N;
+
+  if (!lArc || !rArc) return;
+
+  var lSite = lArc.site,
+      cSite = arc.site,
+      rSite = rArc.site;
+
+  if (lSite === rSite) return;
+
+  var bx = cSite[0],
+      by = cSite[1],
+      ax = lSite[0] - bx,
+      ay = lSite[1] - by,
+      cx = rSite[0] - bx,
+      cy = rSite[1] - by;
+
+  var d = 2 * (ax * cy - ay * cx);
+  if (d >= -epsilon2$4) return;
+
+  var ha = ax * ax + ay * ay,
+      hc = cx * cx + cy * cy,
+      x = (cy * ha - ay * hc) / d,
+      y = (ax * hc - cx * ha) / d;
+
+  var circle = circlePool.pop() || new Circle;
+  circle.arc = arc;
+  circle.site = cSite;
+  circle.x = x + bx;
+  circle.y = (circle.cy = y + by) + Math.sqrt(x * x + y * y); // y bottom
+
+  arc.circle = circle;
+
+  var before = null,
+      node = circles._;
+
+  while (node) {
+    if (circle.y < node.y || (circle.y === node.y && circle.x <= node.x)) {
+      if (node.L) node = node.L;
+      else { before = node.P; break; }
+    } else {
+      if (node.R) node = node.R;
+      else { before = node; break; }
+    }
+  }
+
+  circles.insert(before, circle);
+  if (!before) firstCircle = circle;
+}
+
+function detachCircle(arc) {
+  var circle = arc.circle;
+  if (circle) {
+    if (!circle.P) firstCircle = circle.N;
+    circles.remove(circle);
+    circlePool.push(circle);
+    RedBlackNode(circle);
+    arc.circle = null;
+  }
+}
+
+var beachPool = [];
+
+function Beach() {
+  RedBlackNode(this);
+  this.edge =
+  this.site =
+  this.circle = null;
+}
+
+function createBeach(site) {
+  var beach = beachPool.pop() || new Beach;
+  beach.site = site;
+  return beach;
+}
+
+function detachBeach(beach) {
+  detachCircle(beach);
+  beaches.remove(beach);
+  beachPool.push(beach);
+  RedBlackNode(beach);
+}
+
+function removeBeach(beach) {
+  var circle = beach.circle,
+      x = circle.x,
+      y = circle.cy,
+      vertex = [x, y],
+      previous = beach.P,
+      next = beach.N,
+      disappearing = [beach];
+
+  detachBeach(beach);
+
+  var lArc = previous;
+  while (lArc.circle
+      && Math.abs(x - lArc.circle.x) < epsilon$7
+      && Math.abs(y - lArc.circle.cy) < epsilon$7) {
+    previous = lArc.P;
+    disappearing.unshift(lArc);
+    detachBeach(lArc);
+    lArc = previous;
+  }
+
+  disappearing.unshift(lArc);
+  detachCircle(lArc);
+
+  var rArc = next;
+  while (rArc.circle
+      && Math.abs(x - rArc.circle.x) < epsilon$7
+      && Math.abs(y - rArc.circle.cy) < epsilon$7) {
+    next = rArc.N;
+    disappearing.push(rArc);
+    detachBeach(rArc);
+    rArc = next;
+  }
+
+  disappearing.push(rArc);
+  detachCircle(rArc);
+
+  var nArcs = disappearing.length,
+      iArc;
+  for (iArc = 1; iArc < nArcs; ++iArc) {
+    rArc = disappearing[iArc];
+    lArc = disappearing[iArc - 1];
+    setEdgeEnd(rArc.edge, lArc.site, rArc.site, vertex);
+  }
+
+  lArc = disappearing[0];
+  rArc = disappearing[nArcs - 1];
+  rArc.edge = createEdge(lArc.site, rArc.site, null, vertex);
+
+  attachCircle(lArc);
+  attachCircle(rArc);
+}
+
+function addBeach(site) {
+  var x = site[0],
+      directrix = site[1],
+      lArc,
+      rArc,
+      dxl,
+      dxr,
+      node = beaches._;
+
+  while (node) {
+    dxl = leftBreakPoint(node, directrix) - x;
+    if (dxl > epsilon$7) node = node.L; else {
+      dxr = x - rightBreakPoint(node, directrix);
+      if (dxr > epsilon$7) {
+        if (!node.R) {
+          lArc = node;
+          break;
+        }
+        node = node.R;
+      } else {
+        if (dxl > -epsilon$7) {
+          lArc = node.P;
+          rArc = node;
+        } else if (dxr > -epsilon$7) {
+          lArc = node;
+          rArc = node.N;
+        } else {
+          lArc = rArc = node;
+        }
+        break;
+      }
+    }
+  }
+
+  createCell(site);
+  var newArc = createBeach(site);
+  beaches.insert(lArc, newArc);
+
+  if (!lArc && !rArc) return;
+
+  if (lArc === rArc) {
+    detachCircle(lArc);
+    rArc = createBeach(lArc.site);
+    beaches.insert(newArc, rArc);
+    newArc.edge = rArc.edge = createEdge(lArc.site, newArc.site);
+    attachCircle(lArc);
+    attachCircle(rArc);
+    return;
+  }
+
+  if (!rArc) { // && lArc
+    newArc.edge = createEdge(lArc.site, newArc.site);
+    return;
+  }
+
+  // else lArc !== rArc
+  detachCircle(lArc);
+  detachCircle(rArc);
+
+  var lSite = lArc.site,
+      ax = lSite[0],
+      ay = lSite[1],
+      bx = site[0] - ax,
+      by = site[1] - ay,
+      rSite = rArc.site,
+      cx = rSite[0] - ax,
+      cy = rSite[1] - ay,
+      d = 2 * (bx * cy - by * cx),
+      hb = bx * bx + by * by,
+      hc = cx * cx + cy * cy,
+      vertex = [(cy * hb - by * hc) / d + ax, (bx * hc - cx * hb) / d + ay];
+
+  setEdgeEnd(rArc.edge, lSite, rSite, vertex);
+  newArc.edge = createEdge(lSite, site, null, vertex);
+  rArc.edge = createEdge(site, rSite, null, vertex);
+  attachCircle(lArc);
+  attachCircle(rArc);
+}
+
+function leftBreakPoint(arc, directrix) {
+  var site = arc.site,
+      rfocx = site[0],
+      rfocy = site[1],
+      pby2 = rfocy - directrix;
+
+  if (!pby2) return rfocx;
+
+  var lArc = arc.P;
+  if (!lArc) return -Infinity;
+
+  site = lArc.site;
+  var lfocx = site[0],
+      lfocy = site[1],
+      plby2 = lfocy - directrix;
+
+  if (!plby2) return lfocx;
+
+  var hl = lfocx - rfocx,
+      aby2 = 1 / pby2 - 1 / plby2,
+      b = hl / plby2;
+
+  if (aby2) return (-b + Math.sqrt(b * b - 2 * aby2 * (hl * hl / (-2 * plby2) - lfocy + plby2 / 2 + rfocy - pby2 / 2))) / aby2 + rfocx;
+
+  return (rfocx + lfocx) / 2;
+}
+
+function rightBreakPoint(arc, directrix) {
+  var rArc = arc.N;
+  if (rArc) return leftBreakPoint(rArc, directrix);
+  var site = arc.site;
+  return site[1] === directrix ? site[0] : Infinity;
+}
+
+var epsilon$7 = 1e-6;
+var epsilon2$4 = 1e-12;
+var beaches;
+var cells;
+var circles;
+var edges;
+
+function triangleArea(a, b, c) {
+  return (a[0] - c[0]) * (b[1] - a[1]) - (a[0] - b[0]) * (c[1] - a[1]);
+}
+
+function lexicographic(a, b) {
+  return b[1] - a[1]
+      || b[0] - a[0];
+}
+
+function Diagram(sites, extent) {
+  var site = sites.sort(lexicographic).pop(),
+      x,
+      y,
+      circle;
+
+  edges = [];
+  cells = new Array(sites.length);
+  beaches = new RedBlackTree;
+  circles = new RedBlackTree;
+
+  while (true) {
+    circle = firstCircle;
+    if (site && (!circle || site[1] < circle.y || (site[1] === circle.y && site[0] < circle.x))) {
+      if (site[0] !== x || site[1] !== y) {
+        addBeach(site);
+        x = site[0], y = site[1];
+      }
+      site = sites.pop();
+    } else if (circle) {
+      removeBeach(circle.arc);
+    } else {
+      break;
+    }
+  }
+
+  sortCellHalfedges();
+
+  if (extent) {
+    var x0 = +extent[0][0],
+        y0 = +extent[0][1],
+        x1 = +extent[1][0],
+        y1 = +extent[1][1];
+    clipEdges(x0, y0, x1, y1);
+    clipCells(x0, y0, x1, y1);
+  }
+
+  this.edges = edges;
+  this.cells = cells;
+
+  beaches =
+  circles =
+  edges =
+  cells = null;
+}
+
+Diagram.prototype = {
+  constructor: Diagram,
+
+  polygons: function() {
+    var edges = this.edges;
+
+    return this.cells.map(function(cell) {
+      var polygon = cell.halfedges.map(function(i) { return cellHalfedgeStart(cell, edges[i]); });
+      polygon.data = cell.site.data;
+      return polygon;
+    });
+  },
+
+  triangles: function() {
+    var triangles = [],
+        edges = this.edges;
+
+    this.cells.forEach(function(cell, i) {
+      if (!(m = (halfedges = cell.halfedges).length)) return;
+      var site = cell.site,
+          halfedges,
+          j = -1,
+          m,
+          s0,
+          e1 = edges[halfedges[m - 1]],
+          s1 = e1.left === site ? e1.right : e1.left;
+
+      while (++j < m) {
+        s0 = s1;
+        e1 = edges[halfedges[j]];
+        s1 = e1.left === site ? e1.right : e1.left;
+        if (s0 && s1 && i < s0.index && i < s1.index && triangleArea(site, s0, s1) < 0) {
+          triangles.push([site.data, s0.data, s1.data]);
+        }
+      }
+    });
+
+    return triangles;
+  },
+
+  links: function() {
+    return this.edges.filter(function(edge) {
+      return edge.right;
+    }).map(function(edge) {
+      return {
+        source: edge.left.data,
+        target: edge.right.data
+      };
+    });
+  },
+
+  find: function(x, y, radius) {
+    var that = this, i0, i1 = that._found || 0, n = that.cells.length, cell;
+
+    // Use the previously-found cell, or start with an arbitrary one.
+    while (!(cell = that.cells[i1])) if (++i1 >= n) return null;
+    var dx = x - cell.site[0], dy = y - cell.site[1], d2 = dx * dx + dy * dy;
+
+    // Traverse the half-edges to find a closer cell, if any.
+    do {
+      cell = that.cells[i0 = i1], i1 = null;
+      cell.halfedges.forEach(function(e) {
+        var edge = that.edges[e], v = edge.left;
+        if ((v === cell.site || !v) && !(v = edge.right)) return;
+        var vx = x - v[0], vy = y - v[1], v2 = vx * vx + vy * vy;
+        if (v2 < d2) d2 = v2, i1 = v.index;
+      });
+    } while (i1 !== null);
+
+    that._found = i0;
+
+    return radius == null || d2 <= radius * radius ? cell.site : null;
+  }
+};
+
+var constant$24 = function(x) {
+  return function() {
+    return x;
+  };
+};
+
+function ZoomEvent$1(target, type, transform) {
+  this.target = target;
+  this.type = type;
+  this.transform = transform;
+}
+
+function Transform$1(k, x, y) {
+  this.k = k;
+  this.x = x;
+  this.y = y;
+}
+
+Transform$1.prototype = {
+  constructor: Transform$1,
+  scale: function(k) {
+    return k === 1 ? this : new Transform$1(this.k * k, this.x, this.y);
+  },
+  translate: function(x, y) {
+    return x === 0 & y === 0 ? this : new Transform$1(this.k, this.x + this.k * x, this.y + this.k * y);
+  },
+  apply: function(point) {
+    return [point[0] * this.k + this.x, point[1] * this.k + this.y];
+  },
+  applyX: function(x) {
+    return x * this.k + this.x;
+  },
+  applyY: function(y) {
+    return y * this.k + this.y;
+  },
+  invert: function(location) {
+    return [(location[0] - this.x) / this.k, (location[1] - this.y) / this.k];
+  },
+  invertX: function(x) {
+    return (x - this.x) / this.k;
+  },
+  invertY: function(y) {
+    return (y - this.y) / this.k;
+  },
+  rescaleX: function(x) {
+    return x.copy().domain(x.range().map(this.invertX, this).map(x.invert, x));
+  },
+  rescaleY: function(y) {
+    return y.copy().domain(y.range().map(this.invertY, this).map(y.invert, y));
+  },
+  toString: function() {
+    return "translate(" + this.x + "," + this.y + ") scale(" + this.k + ")";
+  }
+};
+
+var identity$19 = new Transform$1(1, 0, 0);
+
+function nopropagation$4() {
+  event$2.stopImmediatePropagation();
+}
+
+var noevent$4 = function() {
+  event$2.preventDefault();
+  event$2.stopImmediatePropagation();
+};
+
+// Ignore right-click, since that should open the context menu.
+function defaultFilter$4() {
+  return !event$2.button;
+}
+
+function defaultExtent$2() {
+  var e = this, w, h;
+  if (e instanceof SVGElement) {
+    e = e.ownerSVGElement || e;
+    w = e.width.baseVal.value;
+    h = e.height.baseVal.value;
+  } else {
+    w = e.clientWidth;
+    h = e.clientHeight;
+  }
+  return [[0, 0], [w, h]];
+}
+
+function defaultTransform$1() {
+  return this.__zoom || identity$19;
+}
+
+// d3.tip
+// Copyright (c) 2013 Justin Palmer
+// ES6 / D3 v4 Adaption Copyright (c) 2016 Constantin Gavrilete
+//
+// Tooltips for d3.js SVG visualizations
+
+var index$1 = function() {
+
+  // Mappings to new version of d3
+  const d3 = {
+    select: select$2,
+    event: () => event$2,
+    selection: selection$4,
+    functor: (v) => {
+      return typeof v === "function" ? v : function() {
+        return v;
+      };
+    }
+  };
+
+  var direction = d3_tip_direction,
+      offset    = d3_tip_offset,
+      html$$1      = d3_tip_html,
+      node      = initNode(),
+      svg       = null,
+      point     = null,
+      target    = null;
+
+  function tip(vis) {
+    svg = getSVGNode(vis);
+    point = svg.createSVGPoint();
+    document.body.appendChild(node);
+  }
+
+  // Public - show the tooltip on the screen
+  //
+  // Returns a tip
+  tip.show = function() {
+    var args = Array.prototype.slice.call(arguments);
+    if(args[args.length - 1] instanceof SVGElement) target = args.pop();
+
+    var content = html$$1.apply(this, args),
+        poffset = offset.apply(this, args),
+        dir     = direction.apply(this, args),
+        nodel   = getNodeEl(),
+        i       = directions.length,
+        coords,
+        scrollTop  = document.documentElement.scrollTop || document.body.scrollTop,
+        scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+
+    nodel.html(content)
+      .style('position', 'absolute')
+      .style('opacity', 1)
+      .style('pointer-events', 'all');
+
+    while(i--) nodel.classed(directions[i], false);
+    coords = direction_callbacks[dir].apply(this);
+    nodel.classed(dir, true)
+      .style('top', (coords.top +  poffset[0]) + scrollTop + 'px')
+      .style('left', (coords.left + poffset[1]) + scrollLeft + 'px');
+
+    return tip
+  };
+
+  // Public - hide the tooltip
+  //
+  // Returns a tip
+  tip.hide = function() {
+    var nodel = getNodeEl();
+    nodel
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+    return tip
+  };
+
+  // Public: Proxy attr calls to the d3 tip container.  Sets or gets attribute value.
+  //
+  // n - name of the attribute
+  // v - value of the attribute
+  //
+  // Returns tip or attribute value
+  tip.attr = function(n, v) {
+    if (arguments.length < 2 && typeof n === 'string') {
+      return getNodeEl().attr(n)
+    } else {
+      var args =  Array.prototype.slice.call(arguments);
+      d3.selection.prototype.attr.apply(getNodeEl(), args);
+    }
+
+    return tip
+  };
+
+  // Public: Proxy style calls to the d3 tip container.  Sets or gets a style value.
+  //
+  // n - name of the property
+  // v - value of the property
+  //
+  // Returns tip or style property value
+  tip.style = function(n, v) {
+    // debugger;
+    if (arguments.length < 2 && typeof n === 'string') {
+      return getNodeEl().style(n)
+    } else {
+      var args = Array.prototype.slice.call(arguments);
+      if (args.length === 1) {
+        var styles = args[0];
+        Object.keys(styles).forEach((key) => {
+          d3.selection.prototype.style.apply(getNodeEl(), [key, styles[key]]);
+        });
+      }
+    }
+
+    return tip
+  };
+
+  // Public: Set or get the direction of the tooltip
+  //
+  // v - One of n(north), s(south), e(east), or w(west), nw(northwest),
+  //     sw(southwest), ne(northeast) or se(southeast)
+  //
+  // Returns tip or direction
+  tip.direction = function(v) {
+    if (!arguments.length) return direction
+    direction = v == null ? v : d3.functor(v);
+
+    return tip
+  };
+
+  // Public: Sets or gets the offset of the tip
+  //
+  // v - Array of [x, y] offset
+  //
+  // Returns offset or
+  tip.offset = function(v) {
+    if (!arguments.length) return offset
+    offset = v == null ? v : d3.functor(v);
+
+    return tip
+  };
+
+  // Public: sets or gets the html value of the tooltip
+  //
+  // v - String value of the tip
+  //
+  // Returns html value or tip
+  tip.html = function(v) {
+    if (!arguments.length) return html$$1
+    html$$1 = v == null ? v : d3.functor(v);
+
+    return tip
+  };
+
+  // Public: destroys the tooltip and removes it from the DOM
+  //
+  // Returns a tip
+  tip.destroy = function() {
+    if(node) {
+      getNodeEl().remove();
+      node = null;
+    }
+    return tip;
+  };
+
+  function d3_tip_direction() { return 'n' }
+  function d3_tip_offset() { return [0, 0] }
+  function d3_tip_html() { return ' ' }
+
+  var direction_callbacks = {
+    n:  direction_n,
+    s:  direction_s,
+    e:  direction_e,
+    w:  direction_w,
+    nw: direction_nw,
+    ne: direction_ne,
+    sw: direction_sw,
+    se: direction_se
+  };
+
+  var directions = Object.keys(direction_callbacks);
+
+  function direction_n() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.n.y - node.offsetHeight,
+      left: bbox.n.x - node.offsetWidth / 2
+    }
+  }
+
+  function direction_s() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.s.y,
+      left: bbox.s.x - node.offsetWidth / 2
+    }
+  }
+
+  function direction_e() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.e.y - node.offsetHeight / 2,
+      left: bbox.e.x
+    }
+  }
+
+  function direction_w() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.w.y - node.offsetHeight / 2,
+      left: bbox.w.x - node.offsetWidth
+    }
+  }
+
+  function direction_nw() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.nw.y - node.offsetHeight,
+      left: bbox.nw.x - node.offsetWidth
+    }
+  }
+
+  function direction_ne() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.ne.y - node.offsetHeight,
+      left: bbox.ne.x
+    }
+  }
+
+  function direction_sw() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.sw.y,
+      left: bbox.sw.x - node.offsetWidth
+    }
+  }
+
+  function direction_se() {
+    var bbox = getScreenBBox();
+    return {
+      top:  bbox.se.y,
+      left: bbox.e.x
+    }
+  }
+
+  function initNode() {
+    var node = d3.select(document.createElement('div'));
+    node
+      .style('position', 'absolute')
+      .style('top', 0)
+      .style('opacity', 0)
+      .style('pointer-events', 'none')
+      .style('box-sizing', 'border-box');
+
+    return node.node()
+  }
+
+  function getSVGNode(el) {
+    el = el.node();
+    if(el.tagName.toLowerCase() === 'svg')
+      return el
+
+    return el.ownerSVGElement
+  }
+
+  function getNodeEl() {
+    if(node === null) {
+      node = initNode();
+      // re-add node to DOM
+      document.body.appendChild(node);
+    }
+    return d3.select(node);
+  }
+
+  // Private - gets the screen coordinates of a shape
+  //
+  // Given a shape on the screen, will return an SVGPoint for the directions
+  // n(north), s(south), e(east), w(west), ne(northeast), se(southeast), nw(northwest),
+  // sw(southwest).
+  //
+  //    +-+-+
+  //    |   |
+  //    +   +
+  //    |   |
+  //    +-+-+
+  //
+  // Returns an Object {n, s, e, w, nw, sw, ne, se}
+  function getScreenBBox() {
+    var targetel   = target || d3.event().target;
+
+    while ('undefined' === typeof targetel.getScreenCTM && 'undefined' === targetel.parentNode) {
+        targetel = targetel.parentNode;
+    }
+
+    var bbox       = {},
+        matrix     = targetel.getScreenCTM(),
+        tbbox      = targetel.getBBox(),
+        width      = tbbox.width,
+        height     = tbbox.height,
+        x          = tbbox.x,
+        y          = tbbox.y;
+
+    point.x = x;
+    point.y = y;
+    bbox.nw = point.matrixTransform(matrix);
+    point.x += width;
+    bbox.ne = point.matrixTransform(matrix);
+    point.y += height;
+    bbox.se = point.matrixTransform(matrix);
+    point.x -= width;
+    bbox.sw = point.matrixTransform(matrix);
+    point.y -= height / 2;
+    bbox.w  = point.matrixTransform(matrix);
+    point.x += width;
+    bbox.e = point.matrixTransform(matrix);
+    point.x -= width / 2;
+    point.y -= height / 2;
+    bbox.n = point.matrixTransform(matrix);
+    point.y += height;
+    bbox.s = point.matrixTransform(matrix);
+
+    return bbox
+  }
+
+  return tip
+};
+
 // export {
 //   entries,
 //   keys,
@@ -15918,8 +25434,6 @@ var helpers = {
 /* Other Plugins */
 
 
-
-
 // export {
 //   default as constant
 // } from 'd3-scale/src/constant.js';
@@ -15928,6 +25442,7 @@ exports.legendColor = color$1;
 exports.legendSize = size;
 exports.legendSymbol = symbol$1;
 exports.legendSHelpers = helpers;
+exports.tip = index$1;
 exports.timeInterval = newInterval;
 exports.timeMillisecond = millisecond;
 exports.timeMilliseconds = milliseconds;

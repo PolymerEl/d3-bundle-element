@@ -134,7 +134,10 @@ export  {
   
 };
 
-
+import tip from '@lix/d3-tip/src/index.js' 
+export {
+  tip
+}
 // export {
 //   default as constant
 // } from 'd3-scale/src/constant.js';
