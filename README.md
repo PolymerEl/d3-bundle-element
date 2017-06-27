@@ -11,6 +11,7 @@ Builds of custom D3 4.0 bundle using ES2015 modules and [Rollup](http://rollupjs
 To build:
 
 ```
+npm update to update all dependencies
 npm install https://github.com/cgav/d3-tip.git#master
 npm install topojson
 npm install
