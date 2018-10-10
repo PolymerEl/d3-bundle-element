@@ -13,6 +13,7 @@ To build:
 ```
 npm update to update all dependencies
 npm install https://github.com/cgav/d3-tip.git#master
+npm install https://github.com/christophe-g/d3-legend.git#promise
 npm install topojson
 npm install
 npm run prepublish

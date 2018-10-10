@@ -26,6 +26,7 @@
     "prepublish": "rm -rf build && mkdir build && rollup -c && rollup -c rollup.shape.config.js && rollup -c rollup.multi.config.js && babel build/d3-multi.js -o build/d3-multi.compile.js&& rollup -c rollup.small.config.js && uglifyjs build/d3.js -c -m -o build/d3.min.js && uglifyjs build/d3-shape.js -c -m -o build/d3-shape.min.js  &&  uglifyjs build/d3-multi.compile.js -c -m -o build/d3-multi.min.js && uglifyjs build/d3-small.js -c -m -o build/d3-small.min.js && copyfiles -f node_modules/topojson/dist/*.js node_modules/d3-geo-projection/build/*.js  build "
   },
   "dependencies": {
+    "@lix/d3-tip": "git+https://github.com/cgav/d3-tip.git#master",
     "d3-array": "^1.1.1",
     "d3-axis": "^1.0.0",
     "d3-brush": "^1.0.4",
@@ -40,6 +41,7 @@
     "d3-format": "^1.2.0",
     "d3-geo": "^1.6.3",
     "d3-geo-projection": "^2.1.0",
+    "d3-hexbin": "^0.2.0",
     "d3-hierarchy": "^1.1.4",
     "d3-interpolate": "^1.1.4",
     "d3-path": "^1.0.5",
@@ -50,20 +52,18 @@
     "d3-request": "^1.0.2",
     "d3-scale": "^1.0.5",
     "d3-selection": "^1.0.5",
+    "d3-selection-multi": "^1.0.1",
     "d3-shape": "^1.0.6",
+    "d3-svg-legend": "git+https://github.com/christophe-g/d3-legend.git#promise",
+    "d3-tile": "^0.0.4",
     "d3-time": "^1.0.6",
     "d3-time-format": "^2.0.5",
     "d3-timer": "^1.0.5",
+    "d3-tip": "https://github.com/cgav/d3-tip.git#master",
     "d3-transition": "^1.0.4",
     "d3-voronoi": "^1.1.2",
     "d3-zoom": "^1.1.4",
-    "d3-tile": "^0.0.4",
-    "topojson": "^3.0.0",
-    "d3-selection-multi": "^1.0.1",
-    "d3-hexbin": "^0.2.0",
-    "d3-svg-legend": "https://github.com/susielu/d3-legend.git#master",
-    "d3-tip": "https://github.com/cgav/d3-tip.git#master"
-    
+    "topojson": "^3.0.0"
   },
   "devDependencies": {
     "babel-cli": "^6.22.2",
