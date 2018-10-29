@@ -1,10 +1,5 @@
-import npm from "rollup-plugin-node-resolve";
+import config from './getRollupConfig.js';
+import * as meta from "./package.json";
 
-export default {
-  entry: "index-small.js",
-  format: "umd",
-  moduleName: "d3",
-  plugins: [npm({jsnext: true})],
-  dest: "build/d3-small.js"
-};
-
+const name = 'small';
+export default config(name, meta);

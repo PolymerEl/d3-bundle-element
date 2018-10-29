@@ -1,21 +1,36 @@
-// import npm from "rollup-plugin-node-resolve";
-
-// export default {
-//   entry: "index-topojson.js",
-//   format: "umd",
-//   moduleName: "topojson",
-//   plugins: [npm({jsnext: true})],
-//   dest: "build/topojson.js"
-// };
-
 import ascii from "rollup-plugin-ascii";
 import node from "rollup-plugin-node-resolve";
+import {terser} from "rollup-plugin-terser";
+import * as meta from "./package.json";
 
-export default {
-  entry: "index-topojson.js",
-  format: "umd",
-  moduleName: "topojson",
+const config =  {
+  input: "index-topojson.js",
   plugins: [node(), ascii()],
-//   plugins: [npm({jsnext: true})],
-  dest: "build/topojson.js"
+  output: {
+	  format: "umd",
+  	name: "topojson",
+  	indent: false,
+  	extend: true,
+  	file: "build/topojson.js",
+    banner: `// ${meta.homepage} v${meta.version} Copyright ${(new Date).getFullYear()} ${meta.author.name}`,
+  }
 };
+
+ export default [
+  config,
+  {
+    ...config,
+    output: {
+      ...config.output,
+      file: `build/topojson.min.js`
+    },
+    plugins: [
+      ...config.plugins,
+      terser({
+        output: {
+          preamble: config.output.banner
+        }
+      })
+    ]
+  }
+	];

@@ -19,3 +19,6 @@ npm install
 npm run prepublish
 
 ```
+
+"prepublish": "rm -rf build && mkdir build && rollup -c && rollup -c rollup.shape.config.js && rollup -c rollup.multi.config.js && babel build/d3-multi.js -o build/d3-multi.compile.js&& rollup -c rollup.small.config.js && uglifyjs build/d3.js -c -m -o build/d3.min.js && uglifyjs build/d3-shape.js -c -m -o build/d3-shape.min.js  &&  uglifyjs build/d3-multi.compile.js -c -m -o build/d3-multi.min.js && uglifyjs build/d3-small.js -c -m -o build/d3-small.min.js && copyfiles -f node_modules/topojson/dist/*.js node_modules/d3-geo-projection/build/*.js  build "
+"prepublish": "rm -rf build && mkdir build && rollup -c && rollup -c rollup.small.config.js && uglifyjs build/d3.js -c -m -o build/d3.min.js && uglifyjs build/d3-shape.js -c -m -o build/d3-shape.min.js   && uglifyjs build/d3-small.js -c -m -o build/d3-small.min.js && copyfiles -f node_modules/topojson/dist/*.js node_modules/d3-geo-projection/build/*.js  build "

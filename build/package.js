@@ -1,0 +1,14 @@
+export var name = "d3-bundle-element";
+export var version = "2.0.0";
+export var description = "polymer element for importing d3.js (v4) as optimized bundle";
+export var keywords = ["web-component","web-components","polymer","indicator","d3","d3-bundle"];
+export var author = {"name":"Christophe Geiser"};
+export var authors = ["christophe-g <christophe.geiser@gmail.com>"];
+export var babel = {"presets":["latest"]};
+export var repository = "https://github.com/polymerEl/d3-bundle-element";
+export var homepage = "https://github.com/polymerEl/d3-bundle-element";
+export var main = "build/d3-multi.js";
+export var license = "MIT";
+export var scripts = {"build-d3":"rollup -c rollup.config.js","build-small":"rollup -c rollup.small.config.js","build-shape":"rollup -c rollup.shape.config.js","build-multi":"rollup -c rollup.multi.config.js","build-topojson":"rollup -c rollup.topojson.config.js","pre-build":"rimraf build && mkdir build && json2module package.json > build/package.js && node rollup.node","prepublish":"npm run pre-build  &&  npm run build-multi && npm run build-shape && npm run build-d3 && npm run build-small && npm run build-topojson"};
+export var dependencies = {"d3-array":"^1.1.1","d3-axis":"^1.0.0","d3-brush":"^1.0.4","d3-chord":"^1.0.4","d3-collection":"^1.0.3","d3-color":"^1.0.3","d3-contour":"^1.3.1","d3-dispatch":"^1.0.5","d3-drag":"^1.0.4","d3-dsv":"^1.0.5","d3-ease":"^1.0.3","d3-fetch":"^1.1.2","d3-force":"^1.0.6","d3-format":"^1.2.0","d3-geo":"^1.6.3","d3-geo-projection":"^2.1.0","d3-hexbin":"^0.2.0","d3-hierarchy":"^1.1.4","d3-interpolate":"^1.1.4","d3-path":"^1.0.5","d3-polygon":"^1.0.3","d3-quadtree":"^1.0.3","d3-queue":"^3.0.5","d3-random":"^1.0.3","d3-scale":"^1.0.5","d3-scale-chromatic":"^1.3.0","d3-selection":"^1.0.5","d3-selection-multi":"^1.0.1","d3-shape":"^1.0.6","d3-svg-legend":"git+https://github.com/christophe-g/d3-legend.git#promise","d3-tile":"^0.0.4","d3-time":"^1.0.6","d3-time-format":"^2.0.5","d3-timer":"^1.0.5","d3-tip":"^0.9.1","d3-transition":"^1.0.4","d3-voronoi":"^1.1.2","d3-zoom":"^1.1.4","topojson":"^3.0.0"};
+export var devDependencies = {"eslint":"5","jsdom":"12","rollup":"0.66","babel-cli":"^6.22.2","babel-preset-es2015":"^6.22.0","babel-preset-latest":"^6.22.0","babelify":"^7.3.0","json2module":"0.0","package-preamble":"0.0","rimraf":"2","rollup-plugin-ascii":"0.0","rollup-plugin-node-resolve":"3","rollup-plugin-terser":"1","tape":"4","uglify-js":"^2.6.2"};
