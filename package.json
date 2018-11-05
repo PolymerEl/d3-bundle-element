@@ -1,6 +1,6 @@
 {
   "name": "d3-bundle-element",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "polymer element for importing d3.js (v4) as optimized bundle",
   "keywords": [
     "web-component",
@@ -31,7 +31,7 @@
     "build-shape": "rollup -c rollup.shape.config.js",
     "build-multi": "rollup -c rollup.multi.config.js",
     "build-topojson": "rollup -c rollup.topojson.config.js",
-    "pre-build" :"rimraf build && mkdir build && json2module package.json > build/package.js && node rollup.node",
+    "pre-build": "rimraf build && mkdir build && json2module package.json > build/package.js && node rollup.node",
     "prepublish": "npm run pre-build  &&  npm run build-multi && npm run build-shape && npm run build-d3 && npm run build-small && npm run build-topojson"
   },
   "dependencies": {
