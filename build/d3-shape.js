@@ -1,4 +1,4 @@
-// https://github.com/polymerEl/d3-bundle-element v2.0.0 Copyright 2018 Christophe Geiser
+// https://github.com/polymerEl/d3-bundle-element v2.0.1 Copyright 2019 Christophe Geiser
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -184,7 +184,9 @@
   function intersect(x0, y0, x1, y1, x2, y2, x3, y3) {
     var x10 = x1 - x0, y10 = y1 - y0,
         x32 = x3 - x2, y32 = y3 - y2,
-        t = (x32 * (y0 - y2) - y32 * (x0 - x2)) / (y32 * x10 - x32 * y10);
+        t = y32 * x10 - x32 * y10;
+    if (t * t < epsilon$1) return;
+    t = (x32 * (y0 - y2) - y32 * (x0 - x2)) / t;
     return [x0 + t * x10, y0 + t * y10];
   }
 
@@ -305,12 +307,12 @@
           var x11 = r1 * cos(a11),
               y11 = r1 * sin(a11),
               x00 = r0 * cos(a00),
-              y00 = r0 * sin(a00);
+              y00 = r0 * sin(a00),
+              oc;
 
           // Restrict the corner radius according to the sector angle.
-          if (da < pi$1) {
-            var oc = da0 > epsilon$1 ? intersect(x01, y01, x00, y00, x11, y11, x10, y10) : [x10, y10],
-                ax = x01 - oc[0],
+          if (da < pi$1 && (oc = intersect(x01, y01, x00, y00, x11, y11, x10, y10))) {
+            var ax = x01 - oc[0],
                 ay = y01 - oc[1],
                 bx = x11 - oc[0],
                 by = y11 - oc[1],
@@ -1918,7 +1920,7 @@
   }
 
   function diverging(series, order) {
-    if (!((n = series.length) > 1)) return;
+    if (!((n = series.length) > 0)) return;
     for (var i, j = 0, d, dy, yp, yn, n, m = series[order[0]].length; j < m; ++j) {
       for (yp = yn = 0, i = 0; i < n; ++i) {
         if ((dy = (d = series[order[i]][j])[1] - d[0]) >= 0) {
@@ -1964,6 +1966,17 @@
     none(series, order);
   }
 
+  function appearance(series) {
+    var peaks = series.map(peak);
+    return none$1(series).sort(function(a, b) { return peaks[a] - peaks[b]; });
+  }
+
+  function peak(series) {
+    var i = -1, j = 0, n = series.length, vi, vj = -Infinity;
+    while (++i < n) if ((vi = +series[i][1]) > vj) vj = vi, j = i;
+    return j;
+  }
+
   function ascending(series) {
     var sums = series.map(sum);
     return none$1(series).sort(function(a, b) { return sums[a] - sums[b]; });
@@ -1984,7 +1997,7 @@
         i,
         j,
         sums = series.map(sum),
-        order = none$1(series).sort(function(a, b) { return sums[b] - sums[a]; }),
+        order = appearance(series),
         top = 0,
         bottom = 0,
         tops = [],
@@ -2054,6 +2067,7 @@
   exports.stackOffsetNone = none;
   exports.stackOffsetSilhouette = silhouette;
   exports.stackOffsetWiggle = wiggle;
+  exports.stackOrderAppearance = appearance;
   exports.stackOrderAscending = ascending;
   exports.stackOrderDescending = descending$1;
   exports.stackOrderInsideOut = insideOut;

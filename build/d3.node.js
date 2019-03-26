@@ -35,7 +35,7 @@ var d3Transition = require('d3-transition');
 var d3Voronoi = require('d3-voronoi');
 var d3Zoom = require('d3-zoom');
 
-var version = "2.0.0";
+var version = "2.0.1";
 
 Object.keys(d3Array).forEach(function (key) { exports[key] = d3Array[key]; });
 Object.keys(d3Axis).forEach(function (key) { exports[key] = d3Axis[key]; });

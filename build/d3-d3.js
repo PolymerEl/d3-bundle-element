@@ -1,11 +1,11 @@
-// https://github.com/polymerEl/d3-bundle-element v2.0.0 Copyright 2018 Christophe Geiser
+// https://github.com/polymerEl/d3-bundle-element v2.0.1 Copyright 2019 Christophe Geiser
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
   (factory((global.d3 = global.d3 || {})));
 }(this, (function (exports) { 'use strict';
 
-  var version = "2.0.0";
+  var version = "2.0.1";
 
   function ascending(a, b) {
     return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
@@ -903,31 +903,14 @@
     return new Selection(subgroups, parents);
   }
 
-  var matcher = function(selector) {
+  function matcher(selector) {
     return function() {
       return this.matches(selector);
     };
-  };
-
-  if (typeof document !== "undefined") {
-    var element = document.documentElement;
-    if (!element.matches) {
-      var vendorMatches = element.webkitMatchesSelector
-          || element.msMatchesSelector
-          || element.mozMatchesSelector
-          || element.oMatchesSelector;
-      matcher = function(selector) {
-        return function() {
-          return vendorMatches.call(this, selector);
-        };
-      };
-    }
   }
 
-  var matcher$1 = matcher;
-
   function selection_filter(match) {
-    if (typeof match !== "function") match = matcher$1(match);
+    if (typeof match !== "function") match = matcher(match);
 
     for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
       for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
@@ -1089,6 +1072,14 @@
     return new Selection(this._exit || this._groups.map(sparse), this._parents);
   }
 
+  function selection_join(onenter, onupdate, onexit) {
+    var enter = this.enter(), update = this, exit = this.exit();
+    enter = typeof onenter === "function" ? onenter(enter) : enter.append(onenter + "");
+    if (onupdate != null) update = onupdate(update);
+    if (onexit == null) exit.remove(); else onexit(exit);
+    return enter && update ? enter.merge(update).order() : update;
+  }
+
   function selection_merge(selection$$1) {
 
     for (var groups0 = this._groups, groups1 = selection$$1._groups, m0 = groups0.length, m1 = groups1.length, m = Math.min(m0, m1), merges = new Array(m0), j = 0; j < m; ++j) {
@@ -1111,7 +1102,7 @@
     for (var groups = this._groups, j = -1, m = groups.length; ++j < m;) {
       for (var group = groups[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
         if (node = group[i]) {
-          if (next && next !== node.nextSibling) next.parentNode.insertBefore(node, next);
+          if (next && node.compareDocumentPosition(next) ^ 4) next.parentNode.insertBefore(node, next);
           next = node;
         }
       }
@@ -1509,8 +1500,8 @@
   exports.event = null;
 
   if (typeof document !== "undefined") {
-    var element$1 = document.documentElement;
-    if (!("onmouseenter" in element$1)) {
+    var element = document.documentElement;
+    if (!("onmouseenter" in element)) {
       filterEvents = {mouseenter: "mouseover", mouseleave: "mouseout"};
     }
   }
@@ -1664,6 +1655,7 @@
     data: selection_data,
     enter: selection_enter,
     exit: selection_exit,
+    join: selection_join,
     merge: selection_merge,
     order: selection_order,
     sort: selection_sort,
@@ -3200,7 +3192,7 @@
     return t;
   }
 
-  var emptyOn = dispatch("start", "end", "interrupt");
+  var emptyOn = dispatch("start", "end", "cancel", "interrupt");
   var emptyTween = [];
 
   var CREATED = 0;
@@ -3238,7 +3230,7 @@
 
   function set$1(node, id) {
     var schedule = get$1(node, id);
-    if (schedule.state > STARTING) throw new Error("too late; already started");
+    if (schedule.state > STARTED) throw new Error("too late; already running");
     return schedule;
   }
 
@@ -3281,7 +3273,6 @@
         if (o.state === STARTED) return timeout$1(start);
 
         // Interrupt the active transition, if any.
-        // Dispatch the interrupt event.
         if (o.state === RUNNING) {
           o.state = ENDED;
           o.timer.stop();
@@ -3289,12 +3280,11 @@
           delete schedules[i];
         }
 
-        // Cancel any pre-empted transitions. No interrupt event is dispatched
-        // because the cancelled transitions never started. Note that this also
-        // removes this transition from the pending list!
+        // Cancel any pre-empted transitions.
         else if (+i < id) {
           o.state = ENDED;
           o.timer.stop();
+          o.on.call("cancel", node, node.__data__, o.index, o.group);
           delete schedules[i];
         }
       }
@@ -3334,7 +3324,7 @@
           n = tween.length;
 
       while (++i < n) {
-        tween[i].call(null, t);
+        tween[i].call(node, t);
       }
 
       // Dispatch the end event.
@@ -3369,7 +3359,7 @@
       active = schedule$$1.state > STARTING && schedule$$1.state < ENDING;
       schedule$$1.state = ENDED;
       schedule$$1.timer.stop();
-      if (active) schedule$$1.on.call("interrupt", node, node.__data__, schedule$$1.index, schedule$$1.group);
+      schedule$$1.on.call(active ? "interrupt" : "cancel", node, node.__data__, schedule$$1.index, schedule$$1.group);
       delete schedules[i];
     }
 
@@ -3483,52 +3473,56 @@
   }
 
   function attrConstant$1(name, interpolate$$1, value1) {
-    var value00,
+    var string00,
+        string1 = value1 + "",
         interpolate0;
     return function() {
-      var value0 = this.getAttribute(name);
-      return value0 === value1 ? null
-          : value0 === value00 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value1);
+      var string0 = this.getAttribute(name);
+      return string0 === string1 ? null
+          : string0 === string00 ? interpolate0
+          : interpolate0 = interpolate$$1(string00 = string0, value1);
     };
   }
 
   function attrConstantNS$1(fullname, interpolate$$1, value1) {
-    var value00,
+    var string00,
+        string1 = value1 + "",
         interpolate0;
     return function() {
-      var value0 = this.getAttributeNS(fullname.space, fullname.local);
-      return value0 === value1 ? null
-          : value0 === value00 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value1);
+      var string0 = this.getAttributeNS(fullname.space, fullname.local);
+      return string0 === string1 ? null
+          : string0 === string00 ? interpolate0
+          : interpolate0 = interpolate$$1(string00 = string0, value1);
     };
   }
 
   function attrFunction$1(name, interpolate$$1, value) {
-    var value00,
-        value10,
+    var string00,
+        string10,
         interpolate0;
     return function() {
-      var value0, value1 = value(this);
+      var string0, value1 = value(this), string1;
       if (value1 == null) return void this.removeAttribute(name);
-      value0 = this.getAttribute(name);
-      return value0 === value1 ? null
-          : value0 === value00 && value1 === value10 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+      string0 = this.getAttribute(name);
+      string1 = value1 + "";
+      return string0 === string1 ? null
+          : string0 === string00 && string1 === string10 ? interpolate0
+          : (string10 = string1, interpolate0 = interpolate$$1(string00 = string0, value1));
     };
   }
 
   function attrFunctionNS$1(fullname, interpolate$$1, value) {
-    var value00,
-        value10,
+    var string00,
+        string10,
         interpolate0;
     return function() {
-      var value0, value1 = value(this);
+      var string0, value1 = value(this), string1;
       if (value1 == null) return void this.removeAttributeNS(fullname.space, fullname.local);
-      value0 = this.getAttributeNS(fullname.space, fullname.local);
-      return value0 === value1 ? null
-          : value0 === value00 && value1 === value10 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+      string0 = this.getAttributeNS(fullname.space, fullname.local);
+      string1 = value1 + "";
+      return string0 === string1 ? null
+          : string0 === string00 && string1 === string10 ? interpolate0
+          : (string10 = string1, interpolate0 = interpolate$$1(string00 = string0, value1));
     };
   }
 
@@ -3537,26 +3531,38 @@
     return this.attrTween(name, typeof value === "function"
         ? (fullname.local ? attrFunctionNS$1 : attrFunction$1)(fullname, i, tweenValue(this, "attr." + name, value))
         : value == null ? (fullname.local ? attrRemoveNS$1 : attrRemove$1)(fullname)
-        : (fullname.local ? attrConstantNS$1 : attrConstant$1)(fullname, i, value + ""));
+        : (fullname.local ? attrConstantNS$1 : attrConstant$1)(fullname, i, value));
+  }
+
+  function attrInterpolate(name, i) {
+    return function(t) {
+      this.setAttribute(name, i(t));
+    };
+  }
+
+  function attrInterpolateNS(fullname, i) {
+    return function(t) {
+      this.setAttributeNS(fullname.space, fullname.local, i(t));
+    };
   }
 
   function attrTweenNS(fullname, value) {
+    var t0, i0;
     function tween() {
-      var node = this, i = value.apply(node, arguments);
-      return i && function(t) {
-        node.setAttributeNS(fullname.space, fullname.local, i(t));
-      };
+      var i = value.apply(this, arguments);
+      if (i !== i0) t0 = (i0 = i) && attrInterpolateNS(fullname, i);
+      return t0;
     }
     tween._value = value;
     return tween;
   }
 
   function attrTween(name, value) {
+    var t0, i0;
     function tween() {
-      var node = this, i = value.apply(node, arguments);
-      return i && function(t) {
-        node.setAttribute(name, i(t));
-      };
+      var i = value.apply(this, arguments);
+      if (i !== i0) t0 = (i0 = i) && attrInterpolate(name, i);
+      return t0;
     }
     tween._value = value;
     return tween;
@@ -3631,7 +3637,7 @@
   }
 
   function transition_filter(match) {
-    if (typeof match !== "function") match = matcher$1(match);
+    if (typeof match !== "function") match = matcher(match);
 
     for (var groups = this._groups, m = groups.length, subgroups = new Array(m), j = 0; j < m; ++j) {
       for (var group = groups[j], n = group.length, subgroup = subgroups[j] = [], node, i = 0; i < n; ++i) {
@@ -3753,66 +3759,93 @@
     return new Selection$1(this._groups, this._parents);
   }
 
-  function styleRemove$1(name, interpolate$$1) {
-    var value00,
-        value10,
+  function styleNull(name, interpolate$$1) {
+    var string00,
+        string10,
         interpolate0;
     return function() {
-      var value0 = styleValue(this, name),
-          value1 = (this.style.removeProperty(name), styleValue(this, name));
-      return value0 === value1 ? null
-          : value0 === value00 && value1 === value10 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+      var string0 = styleValue(this, name),
+          string1 = (this.style.removeProperty(name), styleValue(this, name));
+      return string0 === string1 ? null
+          : string0 === string00 && string1 === string10 ? interpolate0
+          : interpolate0 = interpolate$$1(string00 = string0, string10 = string1);
     };
   }
 
-  function styleRemoveEnd(name) {
+  function styleRemove$1(name) {
     return function() {
       this.style.removeProperty(name);
     };
   }
 
   function styleConstant$1(name, interpolate$$1, value1) {
-    var value00,
+    var string00,
+        string1 = value1 + "",
         interpolate0;
     return function() {
-      var value0 = styleValue(this, name);
-      return value0 === value1 ? null
-          : value0 === value00 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value1);
+      var string0 = styleValue(this, name);
+      return string0 === string1 ? null
+          : string0 === string00 ? interpolate0
+          : interpolate0 = interpolate$$1(string00 = string0, value1);
     };
   }
 
   function styleFunction$1(name, interpolate$$1, value) {
-    var value00,
-        value10,
+    var string00,
+        string10,
         interpolate0;
     return function() {
-      var value0 = styleValue(this, name),
-          value1 = value(this);
-      if (value1 == null) value1 = (this.style.removeProperty(name), styleValue(this, name));
-      return value0 === value1 ? null
-          : value0 === value00 && value1 === value10 ? interpolate0
-          : interpolate0 = interpolate$$1(value00 = value0, value10 = value1);
+      var string0 = styleValue(this, name),
+          value1 = value(this),
+          string1 = value1 + "";
+      if (value1 == null) string1 = value1 = (this.style.removeProperty(name), styleValue(this, name));
+      return string0 === string1 ? null
+          : string0 === string00 && string1 === string10 ? interpolate0
+          : (string10 = string1, interpolate0 = interpolate$$1(string00 = string0, value1));
+    };
+  }
+
+  function styleMaybeRemove(id, name) {
+    var on0, on1, listener0, key = "style." + name, event = "end." + key, remove;
+    return function() {
+      var schedule$$1 = set$1(this, id),
+          on = schedule$$1.on,
+          listener = schedule$$1.value[key] == null ? remove || (remove = styleRemove$1(name)) : undefined;
+
+      // If this node shared a dispatch with the previous node,
+      // just assign the updated shared dispatch and we’re done!
+      // Otherwise, copy-on-write.
+      if (on !== on0 || listener0 !== listener) (on1 = (on0 = on).copy()).on(event, listener0 = listener);
+
+      schedule$$1.on = on1;
     };
   }
 
   function transition_style(name, value, priority) {
     var i = (name += "") === "transform" ? interpolateTransformCss : interpolate;
     return value == null ? this
-            .styleTween(name, styleRemove$1(name, i))
-            .on("end.style." + name, styleRemoveEnd(name))
-        : this.styleTween(name, typeof value === "function"
-            ? styleFunction$1(name, i, tweenValue(this, "style." + name, value))
-            : styleConstant$1(name, i, value + ""), priority);
+        .styleTween(name, styleNull(name, i))
+        .on("end.style." + name, styleRemove$1(name))
+      : typeof value === "function" ? this
+        .styleTween(name, styleFunction$1(name, i, tweenValue(this, "style." + name, value)))
+        .each(styleMaybeRemove(this._id, name))
+      : this
+        .styleTween(name, styleConstant$1(name, i, value), priority)
+        .on("end.style." + name, null);
+  }
+
+  function styleInterpolate(name, i, priority) {
+    return function(t) {
+      this.style.setProperty(name, i(t), priority);
+    };
   }
 
   function styleTween(name, value, priority) {
+    var t, i0;
     function tween() {
-      var node = this, i = value.apply(node, arguments);
-      return i && function(t) {
-        node.style.setProperty(name, i(t), priority);
-      };
+      var i = value.apply(this, arguments);
+      if (i !== i0) t = (i0 = i) && styleInterpolate(name, i, priority);
+      return t;
     }
     tween._value = value;
     return tween;
@@ -3867,6 +3900,31 @@
     return new Transition(groups, this._parents, name, id1);
   }
 
+  function transition_end() {
+    var on0, on1, that = this, id = that._id, size = that.size();
+    return new Promise(function(resolve, reject) {
+      var cancel = {value: reject},
+          end = {value: function() { if (--size === 0) resolve(); }};
+
+      that.each(function() {
+        var schedule$$1 = set$1(this, id),
+            on = schedule$$1.on;
+
+        // If this node shared a dispatch with the previous node,
+        // just assign the updated shared dispatch and we’re done!
+        // Otherwise, copy-on-write.
+        if (on !== on0) {
+          on1 = (on0 = on).copy();
+          on1._.cancel.push(cancel);
+          on1._.interrupt.push(cancel);
+          on1._.end.push(end);
+        }
+
+        schedule$$1.on = on1;
+      });
+    });
+  }
+
   var id = 0;
 
   function Transition(groups, parents, name, id) {
@@ -3910,7 +3968,8 @@
     tween: transition_tween,
     delay: transition_delay,
     duration: transition_duration,
-    ease: transition_ease
+    ease: transition_ease,
+    end: transition_end
   };
 
   function linear$1(t) {
@@ -5735,6 +5794,30 @@
     return columns;
   }
 
+  function pad(value, width) {
+    var s = value + "", length = s.length;
+    return length < width ? new Array(width - length + 1).join(0) + s : s;
+  }
+
+  function formatYear(year) {
+    return year < 0 ? "-" + pad(-year, 6)
+      : year > 9999 ? "+" + pad(year, 6)
+      : pad(year, 4);
+  }
+
+  function formatDate(date) {
+    var hours = date.getUTCHours(),
+        minutes = date.getUTCMinutes(),
+        seconds = date.getUTCSeconds(),
+        milliseconds = date.getUTCMilliseconds();
+    return isNaN(date) ? "Invalid Date"
+        : formatYear(date.getUTCFullYear(), 4) + "-" + pad(date.getUTCMonth() + 1, 2) + "-" + pad(date.getUTCDate(), 2)
+        + (milliseconds ? "T" + pad(hours, 2) + ":" + pad(minutes, 2) + ":" + pad(seconds, 2) + "." + pad(milliseconds, 3) + "Z"
+        : seconds ? "T" + pad(hours, 2) + ":" + pad(minutes, 2) + ":" + pad(seconds, 2) + "Z"
+        : minutes || hours ? "T" + pad(hours, 2) + ":" + pad(minutes, 2) + "Z"
+        : "");
+  }
+
   function dsvFormat(delimiter) {
     var reFormat = new RegExp("[\"" + delimiter + "\n\r]"),
         DELIMITER = delimiter.charCodeAt(0);
@@ -5797,13 +5880,22 @@
       return rows;
     }
 
-    function format(rows, columns) {
-      if (columns == null) columns = inferColumns(rows);
-      return [columns.map(formatValue).join(delimiter)].concat(rows.map(function(row) {
+    function preformatBody(rows, columns) {
+      return rows.map(function(row) {
         return columns.map(function(column) {
           return formatValue(row[column]);
         }).join(delimiter);
-      })).join("\n");
+      });
+    }
+
+    function format(rows, columns) {
+      if (columns == null) columns = inferColumns(rows);
+      return [columns.map(formatValue).join(delimiter)].concat(preformatBody(rows, columns)).join("\n");
+    }
+
+    function formatBody(rows, columns) {
+      if (columns == null) columns = inferColumns(rows);
+      return preformatBody(rows, columns).join("\n");
     }
 
     function formatRows(rows) {
@@ -5814,16 +5906,18 @@
       return row.map(formatValue).join(delimiter);
     }
 
-    function formatValue(text) {
-      return text == null ? ""
-          : reFormat.test(text += "") ? "\"" + text.replace(/"/g, "\"\"") + "\""
-          : text;
+    function formatValue(value) {
+      return value == null ? ""
+          : value instanceof Date ? formatDate(value)
+          : reFormat.test(value += "") ? "\"" + value.replace(/"/g, "\"\"") + "\""
+          : value;
     }
 
     return {
       parse: parse,
       parseRows: parseRows,
       format: format,
+      formatBody: formatBody,
       formatRows: formatRows
     };
   }
@@ -5833,6 +5927,7 @@
   var csvParse = csv.parse;
   var csvParseRows = csv.parseRows;
   var csvFormat = csv.format;
+  var csvFormatBody = csv.formatBody;
   var csvFormatRows = csv.formatRows;
 
   var tsv = dsvFormat("\t");
@@ -5840,7 +5935,23 @@
   var tsvParse = tsv.parse;
   var tsvParseRows = tsv.parseRows;
   var tsvFormat = tsv.format;
+  var tsvFormatBody = tsv.formatBody;
   var tsvFormatRows = tsv.formatRows;
+
+  function autoType(object) {
+    for (var key in object) {
+      var value = object[key].trim(), number;
+      if (!value) value = null;
+      else if (value === "true") value = true;
+      else if (value === "false") value = false;
+      else if (value === "NaN") value = NaN;
+      else if (!isNaN(number = +value)) value = number;
+      else if (/^([-+]\d{2})?\d{4}(-\d{2}(-\d{2})?)?(T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?(Z|[-+]\d{2}:\d{2})?)?$/.test(value)) value = new Date(value);
+      else continue;
+      object[key] = value;
+    }
+    return object;
+  }
 
   function responseBlob(response) {
     if (!response.ok) throw new Error(response.status + " " + response.statusText);
@@ -6040,9 +6151,8 @@
       if (y > y1) y1 = y;
     }
 
-    // If there were no (valid) points, inherit the existing extent.
-    if (x1 < x0) x0 = this._x0, x1 = this._x1;
-    if (y1 < y0) y0 = this._y0, y1 = this._y1;
+    // If there were no (valid) points, abort.
+    if (x0 > x1 || y0 > y1) return this;
 
     // Expand the tree to cover the new points.
     this.cover(x0, y0).cover(x1, y1);
@@ -6072,40 +6182,25 @@
     }
 
     // Otherwise, double repeatedly to cover.
-    else if (x0 > x || x > x1 || y0 > y || y > y1) {
+    else {
       var z = x1 - x0,
           node = this._root,
           parent,
           i;
 
-      switch (i = (y < (y0 + y1) / 2) << 1 | (x < (x0 + x1) / 2)) {
-        case 0: {
-          do parent = new Array(4), parent[i] = node, node = parent;
-          while (z *= 2, x1 = x0 + z, y1 = y0 + z, x > x1 || y > y1);
-          break;
-        }
-        case 1: {
-          do parent = new Array(4), parent[i] = node, node = parent;
-          while (z *= 2, x0 = x1 - z, y1 = y0 + z, x0 > x || y > y1);
-          break;
-        }
-        case 2: {
-          do parent = new Array(4), parent[i] = node, node = parent;
-          while (z *= 2, x1 = x0 + z, y0 = y1 - z, x > x1 || y0 > y);
-          break;
-        }
-        case 3: {
-          do parent = new Array(4), parent[i] = node, node = parent;
-          while (z *= 2, x0 = x1 - z, y0 = y1 - z, x0 > x || y0 > y);
-          break;
+      while (x0 > x || x >= x1 || y0 > y || y >= y1) {
+        i = (y < y0) << 1 | (x < x0);
+        parent = new Array(4), parent[i] = node, node = parent, z *= 2;
+        switch (i) {
+          case 0: x1 = x0 + z, y1 = y0 + z; break;
+          case 1: x0 = x1 - z, y1 = y0 + z; break;
+          case 2: x1 = x0 + z, y0 = y1 - z; break;
+          case 3: x0 = x1 - z, y0 = y1 - z; break;
         }
       }
 
       if (this._root && this._root.length) this._root = node;
     }
-
-    // If the quadtree covers the point already, just return.
-    else return this;
 
     this._x0 = x0;
     this._y0 = y0;
@@ -6633,27 +6728,35 @@
       }
     }
 
-    function tick() {
+    function tick(iterations) {
       var i, n = nodes.length, node;
 
-      alpha += (alphaTarget - alpha) * alphaDecay;
+      if (iterations === undefined) iterations = 1;
 
-      forces.each(function(force) {
-        force(alpha);
-      });
+      for (var k = 0; k < iterations; ++k) {
+        alpha += (alphaTarget - alpha) * alphaDecay;
 
-      for (i = 0; i < n; ++i) {
-        node = nodes[i];
-        if (node.fx == null) node.x += node.vx *= velocityDecay;
-        else node.x = node.fx, node.vx = 0;
-        if (node.fy == null) node.y += node.vy *= velocityDecay;
-        else node.y = node.fy, node.vy = 0;
+        forces.each(function (force) {
+          force(alpha);
+        });
+
+        for (i = 0; i < n; ++i) {
+          node = nodes[i];
+          if (node.fx == null) node.x += node.vx *= velocityDecay;
+          else node.x = node.fx, node.vx = 0;
+          if (node.fy == null) node.y += node.vy *= velocityDecay;
+          else node.y = node.fy, node.vy = 0;
+        }
       }
+
+      return simulation;
     }
 
     function initializeNodes() {
       for (var i = 0, n = nodes.length, node; i < n; ++i) {
         node = nodes[i], node.index = i;
+        if (node.fx != null) node.x = node.fx;
+        if (node.fy != null) node.y = node.fy;
         if (isNaN(node.x) || isNaN(node.y)) {
           var radius = initialRadius * Math.sqrt(i), angle = i * initialAngle;
           node.x = radius * Math.cos(angle);
@@ -7867,7 +7970,7 @@
   }
 
   function rotationIdentity(lambda, phi) {
-    return [lambda > pi$3 ? lambda - tau$3 : lambda < -pi$3 ? lambda + tau$3 : lambda, phi];
+    return [abs(lambda) > pi$3 ? lambda + Math.round(-lambda / tau$3) * tau$3 : lambda, phi];
   }
 
   rotationIdentity.invert = rotationIdentity;
@@ -11828,6 +11931,24 @@
     return randomExponential;
   })(defaultSource$1);
 
+  function initRange(domain, range) {
+    switch (arguments.length) {
+      case 0: break;
+      case 1: this.range(domain); break;
+      default: this.range(range).domain(domain); break;
+    }
+    return this;
+  }
+
+  function initInterpolator(domain, interpolator) {
+    switch (arguments.length) {
+      case 0: break;
+      case 1: this.interpolator(domain); break;
+      default: this.interpolator(interpolator).domain(domain); break;
+    }
+    return this;
+  }
+
   var array$3 = Array.prototype;
 
   var map$2 = array$3.map;
@@ -11835,12 +11956,11 @@
 
   var implicit = {name: "implicit"};
 
-  function ordinal(range) {
+  function ordinal() {
     var index = map$1(),
         domain = [],
+        range = [],
         unknown = implicit;
-
-    range = range == null ? [] : slice$5.call(range);
 
     function scale(d) {
       var key = d + "", i = index.get(key);
@@ -11868,11 +11988,10 @@
     };
 
     scale.copy = function() {
-      return ordinal()
-          .domain(domain)
-          .range(range)
-          .unknown(unknown);
+      return ordinal(domain, range).unknown(unknown);
     };
+
+    initRange.apply(scale, arguments);
 
     return scale;
   }
@@ -11930,15 +12049,15 @@
     };
 
     scale.padding = function(_) {
-      return arguments.length ? (paddingInner = paddingOuter = Math.max(0, Math.min(1, _)), rescale()) : paddingInner;
+      return arguments.length ? (paddingInner = Math.min(1, paddingOuter = +_), rescale()) : paddingInner;
     };
 
     scale.paddingInner = function(_) {
-      return arguments.length ? (paddingInner = Math.max(0, Math.min(1, _)), rescale()) : paddingInner;
+      return arguments.length ? (paddingInner = Math.min(1, _), rescale()) : paddingInner;
     };
 
     scale.paddingOuter = function(_) {
-      return arguments.length ? (paddingOuter = Math.max(0, Math.min(1, _)), rescale()) : paddingOuter;
+      return arguments.length ? (paddingOuter = +_, rescale()) : paddingOuter;
     };
 
     scale.align = function(_) {
@@ -11946,16 +12065,14 @@
     };
 
     scale.copy = function() {
-      return band()
-          .domain(domain())
-          .range(range$$1)
+      return band(domain(), range$$1)
           .round(round)
           .paddingInner(paddingInner)
           .paddingOuter(paddingOuter)
           .align(align);
     };
 
-    return rescale();
+    return initRange.apply(rescale(), arguments);
   }
 
   function pointish(scale) {
@@ -11973,7 +12090,7 @@
   }
 
   function point$1() {
-    return pointish(band().paddingInner(1));
+    return pointish(band.apply(null, arguments).paddingInner(1));
   }
 
   function constant$a(x) {
@@ -11988,34 +12105,32 @@
 
   var unit = [0, 1];
 
-  function deinterpolateLinear(a, b) {
+  function identity$6(x) {
+    return x;
+  }
+
+  function normalize(a, b) {
     return (b -= (a = +a))
         ? function(x) { return (x - a) / b; }
-        : constant$a(b);
+        : constant$a(isNaN(b) ? NaN : 0.5);
   }
 
-  function deinterpolateClamp(deinterpolate) {
-    return function(a, b) {
-      var d = deinterpolate(a = +a, b = +b);
-      return function(x) { return x <= a ? 0 : x >= b ? 1 : d(x); };
-    };
+  function clamper(domain) {
+    var a = domain[0], b = domain[domain.length - 1], t;
+    if (a > b) t = a, a = b, b = t;
+    return function(x) { return Math.max(a, Math.min(b, x)); };
   }
 
-  function reinterpolateClamp(reinterpolate) {
-    return function(a, b) {
-      var r = reinterpolate(a = +a, b = +b);
-      return function(t) { return t <= 0 ? a : t >= 1 ? b : r(t); };
-    };
-  }
-
-  function bimap(domain, range, deinterpolate, reinterpolate) {
+  // normalize(a, b)(x) takes a domain value x in [a,b] and returns the corresponding parameter t in [0,1].
+  // interpolate(a, b)(t) takes a parameter t in [0,1] and returns the corresponding range value x in [a,b].
+  function bimap(domain, range, interpolate$$1) {
     var d0 = domain[0], d1 = domain[1], r0 = range[0], r1 = range[1];
-    if (d1 < d0) d0 = deinterpolate(d1, d0), r0 = reinterpolate(r1, r0);
-    else d0 = deinterpolate(d0, d1), r0 = reinterpolate(r0, r1);
+    if (d1 < d0) d0 = normalize(d1, d0), r0 = interpolate$$1(r1, r0);
+    else d0 = normalize(d0, d1), r0 = interpolate$$1(r0, r1);
     return function(x) { return r0(d0(x)); };
   }
 
-  function polymap(domain, range, deinterpolate, reinterpolate) {
+  function polymap(domain, range, interpolate$$1) {
     var j = Math.min(domain.length, range.length) - 1,
         d = new Array(j),
         r = new Array(j),
@@ -12028,8 +12143,8 @@
     }
 
     while (++i < j) {
-      d[i] = deinterpolate(domain[i], domain[i + 1]);
-      r[i] = reinterpolate(range[i], range[i + 1]);
+      d[i] = normalize(domain[i], domain[i + 1]);
+      r[i] = interpolate$$1(range[i], range[i + 1]);
     }
 
     return function(x) {
@@ -12043,16 +12158,18 @@
         .domain(source.domain())
         .range(source.range())
         .interpolate(source.interpolate())
-        .clamp(source.clamp());
+        .clamp(source.clamp())
+        .unknown(source.unknown());
   }
 
-  // deinterpolate(a, b)(x) takes a domain value x in [a,b] and returns the corresponding parameter t in [0,1].
-  // reinterpolate(a, b)(t) takes a parameter t in [0,1] and returns the corresponding domain value x in [a,b].
-  function continuous(deinterpolate, reinterpolate) {
+  function transformer$1() {
     var domain = unit,
         range = unit,
         interpolate$$1 = interpolateValue,
-        clamp = false,
+        transform,
+        untransform,
+        unknown,
+        clamp = identity$6,
         piecewise$$1,
         output,
         input;
@@ -12064,15 +12181,15 @@
     }
 
     function scale(x) {
-      return (output || (output = piecewise$$1(domain, range, clamp ? deinterpolateClamp(deinterpolate) : deinterpolate, interpolate$$1)))(+x);
+      return isNaN(x = +x) ? unknown : (output || (output = piecewise$$1(domain.map(transform), range, interpolate$$1)))(transform(clamp(x)));
     }
 
     scale.invert = function(y) {
-      return (input || (input = piecewise$$1(range, domain, deinterpolateLinear, clamp ? reinterpolateClamp(reinterpolate) : reinterpolate)))(+y);
+      return clamp(untransform((input || (input = piecewise$$1(range, domain.map(transform), interpolateNumber)))(y)));
     };
 
     scale.domain = function(_) {
-      return arguments.length ? (domain = map$2.call(_, number$2), rescale()) : domain.slice();
+      return arguments.length ? (domain = map$2.call(_, number$2), clamp === identity$6 || (clamp = clamper(domain)), rescale()) : domain.slice();
     };
 
     scale.range = function(_) {
@@ -12084,20 +12201,29 @@
     };
 
     scale.clamp = function(_) {
-      return arguments.length ? (clamp = !!_, rescale()) : clamp;
+      return arguments.length ? (clamp = _ ? clamper(domain) : identity$6, scale) : clamp !== identity$6;
     };
 
     scale.interpolate = function(_) {
       return arguments.length ? (interpolate$$1 = _, rescale()) : interpolate$$1;
     };
 
-    return rescale();
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
+    };
+
+    return function(t, u) {
+      transform = t, untransform = u;
+      return rescale();
+    };
   }
 
-  function tickFormat(domain, count, specifier) {
-    var start = domain[0],
-        stop = domain[domain.length - 1],
-        step = tickStep(start, stop, count == null ? 10 : count),
+  function continuous(transform, untransform) {
+    return transformer$1()(transform, untransform);
+  }
+
+  function tickFormat(start, stop, count, specifier) {
+    var step = tickStep(start, stop, count),
         precision;
     specifier = formatSpecifier(specifier == null ? ",f" : specifier);
     switch (specifier.type) {
@@ -12132,7 +12258,8 @@
     };
 
     scale.tickFormat = function(count, specifier) {
-      return tickFormat(domain(), count, specifier);
+      var d = domain();
+      return tickFormat(d[0], d[d.length - 1], count == null ? 10 : count, specifier);
     };
 
     scale.nice = function(count) {
@@ -12179,20 +12306,22 @@
   }
 
   function linear$2() {
-    var scale = continuous(deinterpolateLinear, interpolateNumber);
+    var scale = continuous(identity$6, identity$6);
 
     scale.copy = function() {
       return copy(scale, linear$2());
     };
 
+    initRange.apply(scale, arguments);
+
     return linearish(scale);
   }
 
-  function identity$6() {
-    var domain = [0, 1];
+  function identity$7(domain) {
+    var unknown;
 
     function scale(x) {
-      return +x;
+      return isNaN(x = +x) ? unknown : x;
     }
 
     scale.invert = scale;
@@ -12201,9 +12330,15 @@
       return arguments.length ? (domain = map$2.call(_, number$2), scale) : domain.slice();
     };
 
-    scale.copy = function() {
-      return identity$6().domain(domain);
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
     };
+
+    scale.copy = function() {
+      return identity$7(domain).unknown(unknown);
+    };
+
+    domain = arguments.length ? map$2.call(domain, number$2) : [0, 1];
 
     return linearish(scale);
   }
@@ -12227,16 +12362,20 @@
     return domain;
   }
 
-  function deinterpolate(a, b) {
-    return (b = Math.log(b / a))
-        ? function(x) { return Math.log(x / a) / b; }
-        : constant$a(b);
+  function transformLog(x) {
+    return Math.log(x);
   }
 
-  function reinterpolate(a, b) {
-    return a < 0
-        ? function(t) { return -Math.pow(-b, t) * Math.pow(-a, 1 - t); }
-        : function(t) { return Math.pow(b, t) * Math.pow(a, 1 - t); };
+  function transformExp(x) {
+    return Math.exp(x);
+  }
+
+  function transformLogn(x) {
+    return -Math.log(-x);
+  }
+
+  function transformExpn(x) {
+    return -Math.exp(-x);
   }
 
   function pow10(x) {
@@ -12262,16 +12401,21 @@
     };
   }
 
-  function log$1() {
-    var scale = continuous(deinterpolate, reinterpolate).domain([1, 10]),
+  function loggish(transform) {
+    var scale = transform(transformLog, transformExp),
         domain = scale.domain,
         base = 10,
-        logs = logp(10),
-        pows = powp(10);
+        logs,
+        pows;
 
     function rescale() {
       logs = logp(base), pows = powp(base);
-      if (domain()[0] < 0) logs = reflect(logs), pows = reflect(pows);
+      if (domain()[0] < 0) {
+        logs = reflect(logs), pows = reflect(pows);
+        transform(transformLogn, transformExpn);
+      } else {
+        transform(transformLog, transformExp);
+      }
       return scale;
     }
 
@@ -12343,52 +12487,105 @@
       }));
     };
 
+    return scale;
+  }
+
+  function log$1() {
+    var scale = loggish(transformer$1()).domain([1, 10]);
+
     scale.copy = function() {
-      return copy(scale, log$1().base(base));
+      return copy(scale, log$1()).base(scale.base());
     };
+
+    initRange.apply(scale, arguments);
 
     return scale;
   }
 
-  function raise$1(x, exponent) {
-    return x < 0 ? -Math.pow(-x, exponent) : Math.pow(x, exponent);
+  function transformSymlog(c) {
+    return function(x) {
+      return Math.sign(x) * Math.log1p(Math.abs(x / c));
+    };
   }
 
-  function pow$1() {
-    var exponent = 1,
-        scale = continuous(deinterpolate, reinterpolate),
-        domain = scale.domain;
-
-    function deinterpolate(a, b) {
-      return (b = raise$1(b, exponent) - (a = raise$1(a, exponent)))
-          ? function(x) { return (raise$1(x, exponent) - a) / b; }
-          : constant$a(b);
-    }
-
-    function reinterpolate(a, b) {
-      b = raise$1(b, exponent) - (a = raise$1(a, exponent));
-      return function(t) { return raise$1(a + b * t, 1 / exponent); };
-    }
-
-    scale.exponent = function(_) {
-      return arguments.length ? (exponent = +_, domain(domain())) : exponent;
+  function transformSymexp(c) {
+    return function(x) {
+      return Math.sign(x) * Math.expm1(Math.abs(x)) * c;
     };
+  }
 
-    scale.copy = function() {
-      return copy(scale, pow$1().exponent(exponent));
+  function symlogish(transform) {
+    var c = 1, scale = transform(transformSymlog(c), transformSymexp(c));
+
+    scale.constant = function(_) {
+      return arguments.length ? transform(transformSymlog(c = +_), transformSymexp(c)) : c;
     };
 
     return linearish(scale);
   }
 
+  function symlog() {
+    var scale = symlogish(transformer$1());
+
+    scale.copy = function() {
+      return copy(scale, symlog()).constant(scale.constant());
+    };
+
+    return initRange.apply(scale, arguments);
+  }
+
+  function transformPow(exponent) {
+    return function(x) {
+      return x < 0 ? -Math.pow(-x, exponent) : Math.pow(x, exponent);
+    };
+  }
+
+  function transformSqrt(x) {
+    return x < 0 ? -Math.sqrt(-x) : Math.sqrt(x);
+  }
+
+  function transformSquare(x) {
+    return x < 0 ? -x * x : x * x;
+  }
+
+  function powish(transform) {
+    var scale = transform(identity$6, identity$6),
+        exponent = 1;
+
+    function rescale() {
+      return exponent === 1 ? transform(identity$6, identity$6)
+          : exponent === 0.5 ? transform(transformSqrt, transformSquare)
+          : transform(transformPow(exponent), transformPow(1 / exponent));
+    }
+
+    scale.exponent = function(_) {
+      return arguments.length ? (exponent = +_, rescale()) : exponent;
+    };
+
+    return linearish(scale);
+  }
+
+  function pow$1() {
+    var scale = powish(transformer$1());
+
+    scale.copy = function() {
+      return copy(scale, pow$1()).exponent(scale.exponent());
+    };
+
+    initRange.apply(scale, arguments);
+
+    return scale;
+  }
+
   function sqrt$1() {
-    return pow$1().exponent(0.5);
+    return pow$1.apply(null, arguments).exponent(0.5);
   }
 
   function quantile$$1() {
     var domain = [],
         range = [],
-        thresholds = [];
+        thresholds = [],
+        unknown;
 
     function rescale() {
       var i = 0, n = Math.max(1, range.length);
@@ -12398,7 +12595,7 @@
     }
 
     function scale(x) {
-      if (!isNaN(x = +x)) return range[bisectRight(thresholds, x)];
+      return isNaN(x = +x) ? unknown : range[bisectRight(thresholds, x)];
     }
 
     scale.invertExtent = function(y) {
@@ -12421,6 +12618,10 @@
       return arguments.length ? (range = slice$5.call(_), rescale()) : range.slice();
     };
 
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
+    };
+
     scale.quantiles = function() {
       return thresholds.slice();
     };
@@ -12428,10 +12629,11 @@
     scale.copy = function() {
       return quantile$$1()
           .domain(domain)
-          .range(range);
+          .range(range)
+          .unknown(unknown);
     };
 
-    return scale;
+    return initRange.apply(scale, arguments);
   }
 
   function quantize$1() {
@@ -12439,10 +12641,11 @@
         x1 = 1,
         n = 1,
         domain = [0.5],
-        range = [0, 1];
+        range = [0, 1],
+        unknown;
 
     function scale(x) {
-      if (x <= x) return range[bisectRight(domain, x, 0, n)];
+      return x <= x ? range[bisectRight(domain, x, 0, n)] : unknown;
     }
 
     function rescale() {
@@ -12468,22 +12671,32 @@
           : [domain[i - 1], domain[i]];
     };
 
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : scale;
+    };
+
+    scale.thresholds = function() {
+      return domain.slice();
+    };
+
     scale.copy = function() {
       return quantize$1()
           .domain([x0, x1])
-          .range(range);
+          .range(range)
+          .unknown(unknown);
     };
 
-    return linearish(scale);
+    return initRange.apply(linearish(scale), arguments);
   }
 
   function threshold$1() {
     var domain = [0.5],
         range = [0, 1],
+        unknown,
         n = 1;
 
     function scale(x) {
-      if (x <= x) return range[bisectRight(domain, x, 0, n)];
+      return x <= x ? range[bisectRight(domain, x, 0, n)] : unknown;
     }
 
     scale.domain = function(_) {
@@ -12499,13 +12712,18 @@
       return [domain[i - 1], domain[i]];
     };
 
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
+    };
+
     scale.copy = function() {
       return threshold$1()
           .domain(domain)
-          .range(range);
+          .range(range)
+          .unknown(unknown);
     };
 
-    return scale;
+    return initRange.apply(scale, arguments);
   }
 
   var t0$1 = new Date,
@@ -12607,7 +12825,7 @@
   var durationWeek = 6048e5;
 
   var second = newInterval(function(date) {
-    date.setTime(Math.floor(date / durationSecond) * durationSecond);
+    date.setTime(date - date.getMilliseconds());
   }, function(date, step) {
     date.setTime(+date + step * durationSecond);
   }, function(start, end) {
@@ -12618,7 +12836,7 @@
   var seconds = second.range;
 
   var minute = newInterval(function(date) {
-    date.setTime(Math.floor(date / durationMinute) * durationMinute);
+    date.setTime(date - date.getMilliseconds() - date.getSeconds() * durationSecond);
   }, function(date, step) {
     date.setTime(+date + step * durationMinute);
   }, function(start, end) {
@@ -12629,9 +12847,7 @@
   var minutes = minute.range;
 
   var hour = newInterval(function(date) {
-    var offset = date.getTimezoneOffset() * durationMinute % durationHour;
-    if (offset < 0) offset += durationHour;
-    date.setTime(Math.floor((+date - offset) / durationHour) * durationHour + offset);
+    date.setTime(date - date.getMilliseconds() - date.getSeconds() * durationSecond - date.getMinutes() * durationMinute);
   }, function(date, step) {
     date.setTime(+date + step * durationHour);
   }, function(start, end) {
@@ -12878,7 +13094,7 @@
       "W": formatWeekNumberMonday,
       "x": null,
       "X": null,
-      "y": formatYear,
+      "y": formatYear$1,
       "Y": formatFullYear,
       "Z": formatZone,
       "%": formatLiteralPercent
@@ -13164,7 +13380,7 @@
       percentRe = /^%/,
       requoteRe = /[\\^$*+?|[\]().{}]/g;
 
-  function pad(value, fill, width) {
+  function pad$1(value, fill, width) {
     var sign = value < 0 ? "-" : "",
         string = (sign ? -value : value) + "",
         length = string.length;
@@ -13281,23 +13497,23 @@
   }
 
   function formatDayOfMonth(d, p) {
-    return pad(d.getDate(), p, 2);
+    return pad$1(d.getDate(), p, 2);
   }
 
   function formatHour24(d, p) {
-    return pad(d.getHours(), p, 2);
+    return pad$1(d.getHours(), p, 2);
   }
 
   function formatHour12(d, p) {
-    return pad(d.getHours() % 12 || 12, p, 2);
+    return pad$1(d.getHours() % 12 || 12, p, 2);
   }
 
   function formatDayOfYear(d, p) {
-    return pad(1 + day.count(year(d), d), p, 3);
+    return pad$1(1 + day.count(year(d), d), p, 3);
   }
 
   function formatMilliseconds(d, p) {
-    return pad(d.getMilliseconds(), p, 3);
+    return pad$1(d.getMilliseconds(), p, 3);
   }
 
   function formatMicroseconds(d, p) {
@@ -13305,15 +13521,15 @@
   }
 
   function formatMonthNumber(d, p) {
-    return pad(d.getMonth() + 1, p, 2);
+    return pad$1(d.getMonth() + 1, p, 2);
   }
 
   function formatMinutes(d, p) {
-    return pad(d.getMinutes(), p, 2);
+    return pad$1(d.getMinutes(), p, 2);
   }
 
   function formatSeconds(d, p) {
-    return pad(d.getSeconds(), p, 2);
+    return pad$1(d.getSeconds(), p, 2);
   }
 
   function formatWeekdayNumberMonday(d) {
@@ -13322,13 +13538,13 @@
   }
 
   function formatWeekNumberSunday(d, p) {
-    return pad(sunday.count(year(d), d), p, 2);
+    return pad$1(sunday.count(year(d), d), p, 2);
   }
 
   function formatWeekNumberISO(d, p) {
     var day$$1 = d.getDay();
     d = (day$$1 >= 4 || day$$1 === 0) ? thursday(d) : thursday.ceil(d);
-    return pad(thursday.count(year(d), d) + (year(d).getDay() === 4), p, 2);
+    return pad$1(thursday.count(year(d), d) + (year(d).getDay() === 4), p, 2);
   }
 
   function formatWeekdayNumberSunday(d) {
@@ -13336,42 +13552,42 @@
   }
 
   function formatWeekNumberMonday(d, p) {
-    return pad(monday.count(year(d), d), p, 2);
+    return pad$1(monday.count(year(d), d), p, 2);
   }
 
-  function formatYear(d, p) {
-    return pad(d.getFullYear() % 100, p, 2);
+  function formatYear$1(d, p) {
+    return pad$1(d.getFullYear() % 100, p, 2);
   }
 
   function formatFullYear(d, p) {
-    return pad(d.getFullYear() % 10000, p, 4);
+    return pad$1(d.getFullYear() % 10000, p, 4);
   }
 
   function formatZone(d) {
     var z = d.getTimezoneOffset();
     return (z > 0 ? "-" : (z *= -1, "+"))
-        + pad(z / 60 | 0, "0", 2)
-        + pad(z % 60, "0", 2);
+        + pad$1(z / 60 | 0, "0", 2)
+        + pad$1(z % 60, "0", 2);
   }
 
   function formatUTCDayOfMonth(d, p) {
-    return pad(d.getUTCDate(), p, 2);
+    return pad$1(d.getUTCDate(), p, 2);
   }
 
   function formatUTCHour24(d, p) {
-    return pad(d.getUTCHours(), p, 2);
+    return pad$1(d.getUTCHours(), p, 2);
   }
 
   function formatUTCHour12(d, p) {
-    return pad(d.getUTCHours() % 12 || 12, p, 2);
+    return pad$1(d.getUTCHours() % 12 || 12, p, 2);
   }
 
   function formatUTCDayOfYear(d, p) {
-    return pad(1 + utcDay.count(utcYear(d), d), p, 3);
+    return pad$1(1 + utcDay.count(utcYear(d), d), p, 3);
   }
 
   function formatUTCMilliseconds(d, p) {
-    return pad(d.getUTCMilliseconds(), p, 3);
+    return pad$1(d.getUTCMilliseconds(), p, 3);
   }
 
   function formatUTCMicroseconds(d, p) {
@@ -13379,15 +13595,15 @@
   }
 
   function formatUTCMonthNumber(d, p) {
-    return pad(d.getUTCMonth() + 1, p, 2);
+    return pad$1(d.getUTCMonth() + 1, p, 2);
   }
 
   function formatUTCMinutes(d, p) {
-    return pad(d.getUTCMinutes(), p, 2);
+    return pad$1(d.getUTCMinutes(), p, 2);
   }
 
   function formatUTCSeconds(d, p) {
-    return pad(d.getUTCSeconds(), p, 2);
+    return pad$1(d.getUTCSeconds(), p, 2);
   }
 
   function formatUTCWeekdayNumberMonday(d) {
@@ -13396,13 +13612,13 @@
   }
 
   function formatUTCWeekNumberSunday(d, p) {
-    return pad(utcSunday.count(utcYear(d), d), p, 2);
+    return pad$1(utcSunday.count(utcYear(d), d), p, 2);
   }
 
   function formatUTCWeekNumberISO(d, p) {
     var day$$1 = d.getUTCDay();
     d = (day$$1 >= 4 || day$$1 === 0) ? utcThursday(d) : utcThursday.ceil(d);
-    return pad(utcThursday.count(utcYear(d), d) + (utcYear(d).getUTCDay() === 4), p, 2);
+    return pad$1(utcThursday.count(utcYear(d), d) + (utcYear(d).getUTCDay() === 4), p, 2);
   }
 
   function formatUTCWeekdayNumberSunday(d) {
@@ -13410,15 +13626,15 @@
   }
 
   function formatUTCWeekNumberMonday(d, p) {
-    return pad(utcMonday.count(utcYear(d), d), p, 2);
+    return pad$1(utcMonday.count(utcYear(d), d), p, 2);
   }
 
   function formatUTCYear(d, p) {
-    return pad(d.getUTCFullYear() % 100, p, 2);
+    return pad$1(d.getUTCFullYear() % 100, p, 2);
   }
 
   function formatUTCFullYear(d, p) {
-    return pad(d.getUTCFullYear() % 10000, p, 4);
+    return pad$1(d.getUTCFullYear() % 10000, p, 4);
   }
 
   function formatUTCZone() {
@@ -13495,7 +13711,7 @@
   }
 
   function calendar(year$$1, month$$1, week, day$$1, hour$$1, minute$$1, second$$1, millisecond$$1, format) {
-    var scale = continuous(deinterpolateLinear, interpolateNumber),
+    var scale = continuous(identity$6, identity$6),
         invert = scale.invert,
         domain = scale.domain;
 
@@ -13529,14 +13745,14 @@
       [  year$$1,  1,      durationYear  ]
     ];
 
-    function tickFormat(date$$1) {
-      return (second$$1(date$$1) < date$$1 ? formatMillisecond
-          : minute$$1(date$$1) < date$$1 ? formatSecond
-          : hour$$1(date$$1) < date$$1 ? formatMinute
-          : day$$1(date$$1) < date$$1 ? formatHour
-          : month$$1(date$$1) < date$$1 ? (week(date$$1) < date$$1 ? formatDay : formatWeek)
-          : year$$1(date$$1) < date$$1 ? formatMonth
-          : formatYear)(date$$1);
+    function tickFormat(date) {
+      return (second$$1(date) < date ? formatMillisecond
+          : minute$$1(date) < date ? formatSecond
+          : hour$$1(date) < date ? formatMinute
+          : day$$1(date) < date ? formatHour
+          : month$$1(date) < date ? (week(date) < date ? formatDay : formatWeek)
+          : year$$1(date) < date ? formatMonth
+          : formatYear)(date);
     }
 
     function tickInterval(interval, start, stop, step) {
@@ -13603,71 +13819,30 @@
   }
 
   function time() {
-    return calendar(year, month, sunday, day, hour, minute, second, millisecond, exports.timeFormat).domain([new Date(2000, 0, 1), new Date(2000, 0, 2)]);
+    return initRange.apply(calendar(year, month, sunday, day, hour, minute, second, millisecond, exports.timeFormat).domain([new Date(2000, 0, 1), new Date(2000, 0, 2)]), arguments);
   }
 
   function utcTime() {
-    return calendar(utcYear, utcMonth, utcSunday, utcDay, utcHour, utcMinute, second, millisecond, exports.utcFormat).domain([Date.UTC(2000, 0, 1), Date.UTC(2000, 0, 2)]);
+    return initRange.apply(calendar(utcYear, utcMonth, utcSunday, utcDay, utcHour, utcMinute, second, millisecond, exports.utcFormat).domain([Date.UTC(2000, 0, 1), Date.UTC(2000, 0, 2)]), arguments);
   }
 
-  function colors(s) {
-    return s.match(/.{6}/g).map(function(x) {
-      return "#" + x;
-    });
-  }
-
-  var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
-
-  var category20b = colors("393b795254a36b6ecf9c9ede6379398ca252b5cf6bcedb9c8c6d31bd9e39e7ba52e7cb94843c39ad494ad6616be7969c7b4173a55194ce6dbdde9ed6");
-
-  var category20c = colors("3182bd6baed69ecae1c6dbefe6550dfd8d3cfdae6bfdd0a231a35474c476a1d99bc7e9c0756bb19e9ac8bcbddcdadaeb636363969696bdbdbdd9d9d9");
-
-  var category20 = colors("1f77b4aec7e8ff7f0effbb782ca02c98df8ad62728ff98969467bdc5b0d58c564bc49c94e377c2f7b6d27f7f7fc7c7c7bcbd22dbdb8d17becf9edae5");
-
-  var cubehelix$3 = cubehelixLong(cubehelix(300, 0.5, 0.0), cubehelix(-240, 0.5, 1.0));
-
-  var warm = cubehelixLong(cubehelix(-100, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
-
-  var cool = cubehelixLong(cubehelix(260, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
-
-  var rainbow = cubehelix();
-
-  function rainbow$1(t) {
-    if (t < 0 || t > 1) t -= Math.floor(t);
-    var ts = Math.abs(t - 0.5);
-    rainbow.h = 360 * t - 100;
-    rainbow.s = 1.5 - 1.5 * ts;
-    rainbow.l = 0.8 - 0.9 * ts;
-    return rainbow + "";
-  }
-
-  function ramp(range) {
-    var n = range.length;
-    return function(t) {
-      return range[Math.max(0, Math.min(n - 1, Math.floor(t * n)))];
-    };
-  }
-
-  var viridis = ramp(colors("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
-
-  var magma = ramp(colors("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
-
-  var inferno = ramp(colors("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
-
-  var plasma = ramp(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
-
-  function sequential(interpolator) {
+  function transformer$2() {
     var x0 = 0,
         x1 = 1,
-        clamp = false;
+        t0,
+        t1,
+        k10,
+        transform,
+        interpolator = identity$6,
+        clamp = false,
+        unknown;
 
     function scale(x) {
-      var t = (x - x0) / (x1 - x0);
-      return interpolator(clamp ? Math.max(0, Math.min(1, t)) : t);
+      return isNaN(x = +x) ? unknown : interpolator(k10 === 0 ? 0.5 : (x = (transform(x) - t0) * k10, clamp ? Math.max(0, Math.min(1, x)) : x));
     }
 
     scale.domain = function(_) {
-      return arguments.length ? (x0 = +_[0], x1 = +_[1], scale) : [x0, x1];
+      return arguments.length ? (t0 = transform(x0 = +_[0]), t1 = transform(x1 = +_[1]), k10 = t0 === t1 ? 0 : 1 / (t1 - t0), scale) : [x0, x1];
     };
 
     scale.clamp = function(_) {
@@ -13678,38 +13853,204 @@
       return arguments.length ? (interpolator = _, scale) : interpolator;
     };
 
-    scale.copy = function() {
-      return sequential(interpolator).domain([x0, x1]).clamp(clamp);
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
     };
 
-    return linearish(scale);
+    return function(t) {
+      transform = t, t0 = t(x0), t1 = t(x1), k10 = t0 === t1 ? 0 : 1 / (t1 - t0);
+      return scale;
+    };
   }
 
-  function colors$1(specifier) {
+  function copy$1(source, target) {
+    return target
+        .domain(source.domain())
+        .interpolator(source.interpolator())
+        .clamp(source.clamp())
+        .unknown(source.unknown());
+  }
+
+  function sequential() {
+    var scale = linearish(transformer$2()(identity$6));
+
+    scale.copy = function() {
+      return copy$1(scale, sequential());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function sequentialLog() {
+    var scale = loggish(transformer$2()).domain([1, 10]);
+
+    scale.copy = function() {
+      return copy$1(scale, sequentialLog()).base(scale.base());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function sequentialSymlog() {
+    var scale = symlogish(transformer$2());
+
+    scale.copy = function() {
+      return copy$1(scale, sequentialSymlog()).constant(scale.constant());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function sequentialPow() {
+    var scale = powish(transformer$2());
+
+    scale.copy = function() {
+      return copy$1(scale, sequentialPow()).exponent(scale.exponent());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function sequentialSqrt() {
+    return sequentialPow.apply(null, arguments).exponent(0.5);
+  }
+
+  function sequentialQuantile() {
+    var domain = [],
+        interpolator = identity$6;
+
+    function scale(x) {
+      if (!isNaN(x = +x)) return interpolator((bisectRight(domain, x) - 1) / (domain.length - 1));
+    }
+
+    scale.domain = function(_) {
+      if (!arguments.length) return domain.slice();
+      domain = [];
+      for (var i = 0, n = _.length, d; i < n; ++i) if (d = _[i], d != null && !isNaN(d = +d)) domain.push(d);
+      domain.sort(ascending);
+      return scale;
+    };
+
+    scale.interpolator = function(_) {
+      return arguments.length ? (interpolator = _, scale) : interpolator;
+    };
+
+    scale.copy = function() {
+      return sequentialQuantile(interpolator).domain(domain);
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function transformer$3() {
+    var x0 = 0,
+        x1 = 0.5,
+        x2 = 1,
+        t0,
+        t1,
+        t2,
+        k10,
+        k21,
+        interpolator = identity$6,
+        transform,
+        clamp = false,
+        unknown;
+
+    function scale(x) {
+      return isNaN(x = +x) ? unknown : (x = 0.5 + ((x = +transform(x)) - t1) * (x < t1 ? k10 : k21), interpolator(clamp ? Math.max(0, Math.min(1, x)) : x));
+    }
+
+    scale.domain = function(_) {
+      return arguments.length ? (t0 = transform(x0 = +_[0]), t1 = transform(x1 = +_[1]), t2 = transform(x2 = +_[2]), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1), scale) : [x0, x1, x2];
+    };
+
+    scale.clamp = function(_) {
+      return arguments.length ? (clamp = !!_, scale) : clamp;
+    };
+
+    scale.interpolator = function(_) {
+      return arguments.length ? (interpolator = _, scale) : interpolator;
+    };
+
+    scale.unknown = function(_) {
+      return arguments.length ? (unknown = _, scale) : unknown;
+    };
+
+    return function(t) {
+      transform = t, t0 = t(x0), t1 = t(x1), t2 = t(x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1);
+      return scale;
+    };
+  }
+
+  function diverging() {
+    var scale = linearish(transformer$3()(identity$6));
+
+    scale.copy = function() {
+      return copy$1(scale, diverging());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function divergingLog() {
+    var scale = loggish(transformer$3()).domain([0.1, 1, 10]);
+
+    scale.copy = function() {
+      return copy$1(scale, divergingLog()).base(scale.base());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function divergingSymlog() {
+    var scale = symlogish(transformer$3());
+
+    scale.copy = function() {
+      return copy$1(scale, divergingSymlog()).constant(scale.constant());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function divergingPow() {
+    var scale = powish(transformer$3());
+
+    scale.copy = function() {
+      return copy$1(scale, divergingPow()).exponent(scale.exponent());
+    };
+
+    return initInterpolator.apply(scale, arguments);
+  }
+
+  function divergingSqrt() {
+    return divergingPow.apply(null, arguments).exponent(0.5);
+  }
+
+  function colors(specifier) {
     var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
     while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
     return colors;
   }
 
-  colors$1("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
+  var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
 
-  var Accent = colors$1("7fc97fbeaed4fdc086ffff99386cb0f0027fbf5b17666666");
+  var Accent = colors("7fc97fbeaed4fdc086ffff99386cb0f0027fbf5b17666666");
 
-  var Dark2 = colors$1("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
+  var Dark2 = colors("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
 
-  var Paired = colors$1("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
+  var Paired = colors("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
 
-  var Pastel1 = colors$1("fbb4aeb3cde3ccebc5decbe4fed9a6ffffcce5d8bdfddaecf2f2f2");
+  var Pastel1 = colors("fbb4aeb3cde3ccebc5decbe4fed9a6ffffcce5d8bdfddaecf2f2f2");
 
-  var Pastel2 = colors$1("b3e2cdfdcdaccbd5e8f4cae4e6f5c9fff2aef1e2cccccccc");
+  var Pastel2 = colors("b3e2cdfdcdaccbd5e8f4cae4e6f5c9fff2aef1e2cccccccc");
 
-  var Set1 = colors$1("e41a1c377eb84daf4a984ea3ff7f00ffff33a65628f781bf999999");
+  var Set1 = colors("e41a1c377eb84daf4a984ea3ff7f00ffff33a65628f781bf999999");
 
-  var Set2 = colors$1("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
+  var Set2 = colors("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
 
-  var Set3 = colors$1("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
+  var Set3 = colors("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
 
-  function ramp$1(scheme) {
+  function ramp(scheme) {
     return rgbBasis(scheme[scheme.length - 1]);
   }
 
@@ -13723,9 +14064,9 @@
     "8c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e",
     "5430058c510abf812ddfc27df6e8c3c7eae580cdc135978f01665e003c30",
     "5430058c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e003c30"
-  ).map(colors$1);
+  ).map(colors);
 
-  var BrBG = ramp$1(scheme);
+  var BrBG = ramp(scheme);
 
   var scheme$1 = new Array(3).concat(
     "af8dc3f7f7f77fbf7b",
@@ -13737,9 +14078,9 @@
     "762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b7837",
     "40004b762a839970abc2a5cfe7d4e8d9f0d3a6dba05aae611b783700441b",
     "40004b762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b783700441b"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PRGn = ramp$1(scheme$1);
+  var PRGn = ramp(scheme$1);
 
   var scheme$2 = new Array(3).concat(
     "e9a3c9f7f7f7a1d76a",
@@ -13751,9 +14092,9 @@
     "c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221",
     "8e0152c51b7dde77aef1b6dafde0efe6f5d0b8e1867fbc414d9221276419",
     "8e0152c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221276419"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PiYG = ramp$1(scheme$2);
+  var PiYG = ramp(scheme$2);
 
   var scheme$3 = new Array(3).concat(
     "998ec3f7f7f7f1a340",
@@ -13765,9 +14106,9 @@
     "5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b35806",
     "2d004b5427888073acb2abd2d8daebfee0b6fdb863e08214b358067f3b08",
     "2d004b5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b358067f3b08"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PuOr = ramp$1(scheme$3);
+  var PuOr = ramp(scheme$3);
 
   var scheme$4 = new Array(3).concat(
     "ef8a62f7f7f767a9cf",
@@ -13779,9 +14120,9 @@
     "b2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac",
     "67001fb2182bd6604df4a582fddbc7d1e5f092c5de4393c32166ac053061",
     "67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"
-  ).map(colors$1);
+  ).map(colors);
 
-  var RdBu = ramp$1(scheme$4);
+  var RdBu = ramp(scheme$4);
 
   var scheme$5 = new Array(3).concat(
     "ef8a62ffffff999999",
@@ -13793,9 +14134,9 @@
     "b2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d",
     "67001fb2182bd6604df4a582fddbc7e0e0e0bababa8787874d4d4d1a1a1a",
     "67001fb2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d1a1a1a"
-  ).map(colors$1);
+  ).map(colors);
 
-  var RdGy = ramp$1(scheme$5);
+  var RdGy = ramp(scheme$5);
 
   var scheme$6 = new Array(3).concat(
     "fc8d59ffffbf91bfdb",
@@ -13807,9 +14148,9 @@
     "d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4",
     "a50026d73027f46d43fdae61fee090e0f3f8abd9e974add14575b4313695",
     "a50026d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4313695"
-  ).map(colors$1);
+  ).map(colors);
 
-  var RdYlBu = ramp$1(scheme$6);
+  var RdYlBu = ramp(scheme$6);
 
   var scheme$7 = new Array(3).concat(
     "fc8d59ffffbf91cf60",
@@ -13821,9 +14162,9 @@
     "d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850",
     "a50026d73027f46d43fdae61fee08bd9ef8ba6d96a66bd631a9850006837",
     "a50026d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850006837"
-  ).map(colors$1);
+  ).map(colors);
 
-  var RdYlGn = ramp$1(scheme$7);
+  var RdYlGn = ramp(scheme$7);
 
   var scheme$8 = new Array(3).concat(
     "fc8d59ffffbf99d594",
@@ -13835,9 +14176,9 @@
     "d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd",
     "9e0142d53e4ff46d43fdae61fee08be6f598abdda466c2a53288bd5e4fa2",
     "9e0142d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd5e4fa2"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Spectral = ramp$1(scheme$8);
+  var Spectral = ramp(scheme$8);
 
   var scheme$9 = new Array(3).concat(
     "e5f5f999d8c92ca25f",
@@ -13847,9 +14188,9 @@
     "edf8fbccece699d8c966c2a441ae76238b45005824",
     "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45005824",
     "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45006d2c00441b"
-  ).map(colors$1);
+  ).map(colors);
 
-  var BuGn = ramp$1(scheme$9);
+  var BuGn = ramp(scheme$9);
 
   var scheme$a = new Array(3).concat(
     "e0ecf49ebcda8856a7",
@@ -13859,9 +14200,9 @@
     "edf8fbbfd3e69ebcda8c96c68c6bb188419d6e016b",
     "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d6e016b",
     "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d810f7c4d004b"
-  ).map(colors$1);
+  ).map(colors);
 
-  var BuPu = ramp$1(scheme$a);
+  var BuPu = ramp(scheme$a);
 
   var scheme$b = new Array(3).concat(
     "e0f3dba8ddb543a2ca",
@@ -13871,9 +14212,9 @@
     "f0f9e8ccebc5a8ddb57bccc44eb3d32b8cbe08589e",
     "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe08589e",
     "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe0868ac084081"
-  ).map(colors$1);
+  ).map(colors);
 
-  var GnBu = ramp$1(scheme$b);
+  var GnBu = ramp(scheme$b);
 
   var scheme$c = new Array(3).concat(
     "fee8c8fdbb84e34a33",
@@ -13883,9 +14224,9 @@
     "fef0d9fdd49efdbb84fc8d59ef6548d7301f990000",
     "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301f990000",
     "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301fb300007f0000"
-  ).map(colors$1);
+  ).map(colors);
 
-  var OrRd = ramp$1(scheme$c);
+  var OrRd = ramp(scheme$c);
 
   var scheme$d = new Array(3).concat(
     "ece2f0a6bddb1c9099",
@@ -13895,9 +14236,9 @@
     "f6eff7d0d1e6a6bddb67a9cf3690c002818a016450",
     "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016450",
     "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016c59014636"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PuBuGn = ramp$1(scheme$d);
+  var PuBuGn = ramp(scheme$d);
 
   var scheme$e = new Array(3).concat(
     "ece7f2a6bddb2b8cbe",
@@ -13907,9 +14248,9 @@
     "f1eef6d0d1e6a6bddb74a9cf3690c00570b0034e7b",
     "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0034e7b",
     "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0045a8d023858"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PuBu = ramp$1(scheme$e);
+  var PuBu = ramp(scheme$e);
 
   var scheme$f = new Array(3).concat(
     "e7e1efc994c7dd1c77",
@@ -13919,9 +14260,9 @@
     "f1eef6d4b9dac994c7df65b0e7298ace125691003f",
     "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125691003f",
     "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125698004367001f"
-  ).map(colors$1);
+  ).map(colors);
 
-  var PuRd = ramp$1(scheme$f);
+  var PuRd = ramp(scheme$f);
 
   var scheme$g = new Array(3).concat(
     "fde0ddfa9fb5c51b8a",
@@ -13931,9 +14272,9 @@
     "feebe2fcc5c0fa9fb5f768a1dd3497ae017e7a0177",
     "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a0177",
     "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a017749006a"
-  ).map(colors$1);
+  ).map(colors);
 
-  var RdPu = ramp$1(scheme$g);
+  var RdPu = ramp(scheme$g);
 
   var scheme$h = new Array(3).concat(
     "edf8b17fcdbb2c7fb8",
@@ -13943,9 +14284,9 @@
     "ffffccc7e9b47fcdbb41b6c41d91c0225ea80c2c84",
     "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea80c2c84",
     "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea8253494081d58"
-  ).map(colors$1);
+  ).map(colors);
 
-  var YlGnBu = ramp$1(scheme$h);
+  var YlGnBu = ramp(scheme$h);
 
   var scheme$i = new Array(3).concat(
     "f7fcb9addd8e31a354",
@@ -13955,9 +14296,9 @@
     "ffffccd9f0a3addd8e78c67941ab5d238443005a32",
     "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443005a32",
     "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443006837004529"
-  ).map(colors$1);
+  ).map(colors);
 
-  var YlGn = ramp$1(scheme$i);
+  var YlGn = ramp(scheme$i);
 
   var scheme$j = new Array(3).concat(
     "fff7bcfec44fd95f0e",
@@ -13967,9 +14308,9 @@
     "ffffd4fee391fec44ffe9929ec7014cc4c028c2d04",
     "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c028c2d04",
     "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c02993404662506"
-  ).map(colors$1);
+  ).map(colors);
 
-  var YlOrBr = ramp$1(scheme$j);
+  var YlOrBr = ramp(scheme$j);
 
   var scheme$k = new Array(3).concat(
     "ffeda0feb24cf03b20",
@@ -13979,9 +14320,9 @@
     "ffffb2fed976feb24cfd8d3cfc4e2ae31a1cb10026",
     "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cb10026",
     "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cbd0026800026"
-  ).map(colors$1);
+  ).map(colors);
 
-  var YlOrRd = ramp$1(scheme$k);
+  var YlOrRd = ramp(scheme$k);
 
   var scheme$l = new Array(3).concat(
     "deebf79ecae13182bd",
@@ -13991,9 +14332,9 @@
     "eff3ffc6dbef9ecae16baed64292c62171b5084594",
     "f7fbffdeebf7c6dbef9ecae16baed64292c62171b5084594",
     "f7fbffdeebf7c6dbef9ecae16baed64292c62171b508519c08306b"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Blues = ramp$1(scheme$l);
+  var Blues = ramp(scheme$l);
 
   var scheme$m = new Array(3).concat(
     "e5f5e0a1d99b31a354",
@@ -14003,9 +14344,9 @@
     "edf8e9c7e9c0a1d99b74c47641ab5d238b45005a32",
     "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45005a32",
     "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45006d2c00441b"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Greens = ramp$1(scheme$m);
+  var Greens = ramp(scheme$m);
 
   var scheme$n = new Array(3).concat(
     "f0f0f0bdbdbd636363",
@@ -14015,9 +14356,9 @@
     "f7f7f7d9d9d9bdbdbd969696737373525252252525",
     "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525",
     "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525000000"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Greys = ramp$1(scheme$n);
+  var Greys = ramp(scheme$n);
 
   var scheme$o = new Array(3).concat(
     "efedf5bcbddc756bb1",
@@ -14027,9 +14368,9 @@
     "f2f0f7dadaebbcbddc9e9ac8807dba6a51a34a1486",
     "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a34a1486",
     "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a354278f3f007d"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Purples = ramp$1(scheme$o);
+  var Purples = ramp(scheme$o);
 
   var scheme$p = new Array(3).concat(
     "fee0d2fc9272de2d26",
@@ -14039,9 +14380,9 @@
     "fee5d9fcbba1fc9272fb6a4aef3b2ccb181d99000d",
     "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181d99000d",
     "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181da50f1567000d"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Reds = ramp$1(scheme$p);
+  var Reds = ramp(scheme$p);
 
   var scheme$q = new Array(3).concat(
     "fee6cefdae6be6550d",
@@ -14051,17 +14392,26 @@
     "feeddefdd0a2fdae6bfd8d3cf16913d948018c2d04",
     "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d948018c2d04",
     "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d94801a636037f2704"
-  ).map(colors$1);
+  ).map(colors);
 
-  var Oranges = ramp$1(scheme$q);
+  var Oranges = ramp(scheme$q);
 
-  cubehelixLong(cubehelix(300, 0.5, 0.0), cubehelix(-240, 0.5, 1.0));
+  var cubehelix$3 = cubehelixLong(cubehelix(300, 0.5, 0.0), cubehelix(-240, 0.5, 1.0));
 
-  var warm$1 = cubehelixLong(cubehelix(-100, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
+  var warm = cubehelixLong(cubehelix(-100, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
 
-  var cool$1 = cubehelixLong(cubehelix(260, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
+  var cool = cubehelixLong(cubehelix(260, 0.75, 0.35), cubehelix(80, 1.50, 0.8));
 
   var c = cubehelix();
+
+  function rainbow(t) {
+    if (t < 0 || t > 1) t -= Math.floor(t);
+    var ts = Math.abs(t - 0.5);
+    c.h = 360 * t - 100;
+    c.s = 1.5 - 1.5 * ts;
+    c.l = 0.8 - 0.9 * ts;
+    return c + "";
+  }
 
   var c$1 = rgb(),
       pi_1_3 = Math.PI / 3,
@@ -14076,20 +14426,20 @@
     return c$1 + "";
   }
 
-  function ramp$2(range) {
+  function ramp$1(range) {
     var n = range.length;
     return function(t) {
       return range[Math.max(0, Math.min(n - 1, Math.floor(t * n)))];
     };
   }
 
-  ramp$2(colors$1("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
+  var viridis = ramp$1(colors("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
 
-  var magma$1 = ramp$2(colors$1("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
+  var magma = ramp$1(colors("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
 
-  var inferno$1 = ramp$2(colors$1("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
+  var inferno = ramp$1(colors("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
 
-  var plasma$1 = ramp$2(colors$1("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
+  var plasma = ramp$1(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
 
   function attrsFunction(selection$$1, map) {
     return selection$$1.each(function() {
@@ -14227,7 +14577,9 @@
   function intersect(x0, y0, x1, y1, x2, y2, x3, y3) {
     var x10 = x1 - x0, y10 = y1 - y0,
         x32 = x3 - x2, y32 = y3 - y2,
-        t = (x32 * (y0 - y2) - y32 * (x0 - x2)) / (y32 * x10 - x32 * y10);
+        t = y32 * x10 - x32 * y10;
+    if (t * t < epsilon$3) return;
+    t = (x32 * (y0 - y2) - y32 * (x0 - x2)) / t;
     return [x0 + t * x10, y0 + t * y10];
   }
 
@@ -14348,12 +14700,12 @@
           var x11 = r1 * cos$2(a11),
               y11 = r1 * sin$2(a11),
               x00 = r0 * cos$2(a00),
-              y00 = r0 * sin$2(a00);
+              y00 = r0 * sin$2(a00),
+              oc;
 
           // Restrict the corner radius according to the sector angle.
-          if (da < pi$4) {
-            var oc = da0 > epsilon$3 ? intersect(x01, y01, x00, y00, x11, y11, x10, y10) : [x10, y10],
-                ax = x01 - oc[0],
+          if (da < pi$4 && (oc = intersect(x01, y01, x00, y00, x11, y11, x10, y10))) {
+            var ax = x01 - oc[0],
                 ay = y01 - oc[1],
                 bx = x11 - oc[0],
                 by = y11 - oc[1],
@@ -14659,12 +15011,12 @@
     return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
   }
 
-  function identity$7(d) {
+  function identity$8(d) {
     return d;
   }
 
   function pie() {
-    var value = identity$7,
+    var value = identity$8,
         sortValues = descending$1,
         sort = null,
         startAngle = constant$b(0),
@@ -15960,8 +16312,8 @@
     none$1(series, order);
   }
 
-  function diverging(series, order) {
-    if (!((n = series.length) > 1)) return;
+  function diverging$1(series, order) {
+    if (!((n = series.length) > 0)) return;
     for (var i, j = 0, d, dy, yp, yn, n, m = series[order[0]].length; j < m; ++j) {
       for (yp = yn = 0, i = 0; i < n; ++i) {
         if ((dy = (d = series[order[i]][j])[1] - d[0]) >= 0) {
@@ -16007,6 +16359,17 @@
     none$1(series, order);
   }
 
+  function appearance(series) {
+    var peaks = series.map(peak);
+    return none$2(series).sort(function(a, b) { return peaks[a] - peaks[b]; });
+  }
+
+  function peak(series) {
+    var i = -1, j = 0, n = series.length, vi, vj = -Infinity;
+    while (++i < n) if ((vi = +series[i][1]) > vj) vj = vi, j = i;
+    return j;
+  }
+
   function ascending$3(series) {
     var sums = series.map(sum$2);
     return none$2(series).sort(function(a, b) { return sums[a] - sums[b]; });
@@ -16027,7 +16390,7 @@
         i,
         j,
         sums = series.map(sum$2),
-        order = none$2(series).sort(function(a, b) { return sums[b] - sums[a]; }),
+        order = appearance(series),
         top = 0,
         bottom = 0,
         tops = [],
@@ -17093,12 +17456,12 @@
     }
   };
 
-  var identity$8 = new Transform(1, 0, 0);
+  var identity$9 = new Transform(1, 0, 0);
 
   transform$1.prototype = Transform.prototype;
 
   function transform$1(node) {
-    return node.__zoom || identity$8;
+    return node.__zoom || identity$9;
   }
 
   function nopropagation$2() {
@@ -17129,7 +17492,7 @@
   }
 
   function defaultTransform() {
-    return this.__zoom || identity$8;
+    return this.__zoom || identity$9;
   }
 
   function defaultWheelDelta() {
@@ -17231,7 +17594,7 @@
         var e = extent.apply(this, arguments),
             t = this.__zoom,
             p = centroid(e);
-        return constrain(identity$8.translate(p[0], p[1]).scale(t.k).translate(
+        return constrain(identity$9.translate(p[0], p[1]).scale(t.k).translate(
           typeof x === "function" ? -x.apply(this, arguments) : -x,
           typeof y === "function" ? -y.apply(this, arguments) : -y
         ), e, translateExtent);
@@ -17592,11 +17955,14 @@
   exports.csvParse = csvParse;
   exports.csvParseRows = csvParseRows;
   exports.csvFormat = csvFormat;
+  exports.csvFormatBody = csvFormatBody;
   exports.csvFormatRows = csvFormatRows;
   exports.tsvParse = tsvParse;
   exports.tsvParseRows = tsvParseRows;
   exports.tsvFormat = tsvFormat;
+  exports.tsvFormatBody = tsvFormatBody;
   exports.tsvFormatRows = tsvFormatRows;
+  exports.autoType = autoType;
   exports.easeLinear = linear$1;
   exports.easeQuad = quadInOut;
   exports.easeQuadIn = quadIn;
@@ -17764,9 +18130,10 @@
   exports.randomExponential = exponential$1;
   exports.scaleBand = band;
   exports.scalePoint = point$1;
-  exports.scaleIdentity = identity$6;
+  exports.scaleIdentity = identity$7;
   exports.scaleLinear = linear$2;
   exports.scaleLog = log$1;
+  exports.scaleSymlog = symlog;
   exports.scaleOrdinal = ordinal;
   exports.scaleImplicit = implicit;
   exports.scalePow = pow$1;
@@ -17776,19 +18143,19 @@
   exports.scaleThreshold = threshold$1;
   exports.scaleTime = time;
   exports.scaleUtc = utcTime;
-  exports.schemeCategory10 = category10;
-  exports.schemeCategory20b = category20b;
-  exports.schemeCategory20c = category20c;
-  exports.schemeCategory20 = category20;
-  exports.interpolateCubehelixDefault = cubehelix$3;
-  exports.interpolateRainbow = rainbow$1;
-  exports.interpolateWarm = warm;
-  exports.interpolateCool = cool;
-  exports.interpolateViridis = viridis;
-  exports.interpolateMagma = magma;
-  exports.interpolateInferno = inferno;
-  exports.interpolatePlasma = plasma;
   exports.scaleSequential = sequential;
+  exports.scaleSequentialLog = sequentialLog;
+  exports.scaleSequentialPow = sequentialPow;
+  exports.scaleSequentialSqrt = sequentialSqrt;
+  exports.scaleSequentialSymlog = sequentialSymlog;
+  exports.scaleSequentialQuantile = sequentialQuantile;
+  exports.scaleDiverging = diverging;
+  exports.scaleDivergingLog = divergingLog;
+  exports.scaleDivergingPow = divergingPow;
+  exports.scaleDivergingSqrt = divergingSqrt;
+  exports.scaleDivergingSymlog = divergingSymlog;
+  exports.tickFormat = tickFormat;
+  exports.schemeCategory10 = category10;
   exports.schemeAccent = Accent;
   exports.schemeDark2 = Dark2;
   exports.schemePaired = Paired;
@@ -17851,11 +18218,19 @@
   exports.schemeReds = scheme$p;
   exports.interpolateOranges = Oranges;
   exports.schemeOranges = scheme$q;
+  exports.interpolateCubehelixDefault = cubehelix$3;
+  exports.interpolateRainbow = rainbow;
+  exports.interpolateWarm = warm;
+  exports.interpolateCool = cool;
   exports.interpolateSinebow = sinebow;
+  exports.interpolateViridis = viridis;
+  exports.interpolateMagma = magma;
+  exports.interpolateInferno = inferno;
+  exports.interpolatePlasma = plasma;
   exports.create = create;
   exports.creator = creator;
   exports.local = local;
-  exports.matcher = matcher$1;
+  exports.matcher = matcher;
   exports.mouse = mouse;
   exports.namespace = namespace;
   exports.namespaces = namespaces;
@@ -17911,10 +18286,11 @@
   exports.curveStepBefore = stepBefore;
   exports.stack = stack;
   exports.stackOffsetExpand = expand;
-  exports.stackOffsetDiverging = diverging;
+  exports.stackOffsetDiverging = diverging$1;
   exports.stackOffsetNone = none$1;
   exports.stackOffsetSilhouette = silhouette;
   exports.stackOffsetWiggle = wiggle;
+  exports.stackOrderAppearance = appearance;
   exports.stackOrderAscending = ascending$3;
   exports.stackOrderDescending = descending$2;
   exports.stackOrderInsideOut = insideOut;
@@ -17996,7 +18372,7 @@
   exports.voronoi = voronoi;
   exports.zoom = zoom;
   exports.zoomTransform = transform$1;
-  exports.zoomIdentity = identity$8;
+  exports.zoomIdentity = identity$9;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 

@@ -1,4 +1,4 @@
-// https://github.com/polymerEl/d3-bundle-element v2.0.0 Copyright 2018 Christophe Geiser
+// https://github.com/polymerEl/d3-bundle-element v2.0.1 Copyright 2019 Christophe Geiser
 (function (global, factory) {
 typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 typeof define === 'function' && define.amd ? define(['exports'], factory) :
